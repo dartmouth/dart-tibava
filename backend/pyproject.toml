@@ -11,7 +11,7 @@ dependencies = [
     "analyser",
     "grpcio>=1.70.0",
     "protobuf>=5.29.3",
-    "django>=5.1.6",
+    "django>=5.2.8,<5.3",
     "celery[redis]>=5.4.0",
     "gunicorn>=23.0.0",
     "valkey>=6.1.0",

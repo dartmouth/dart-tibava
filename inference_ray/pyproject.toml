@@ -27,7 +27,7 @@ dependencies = [
     "onnxruntime-gpu>=1.21.1",
     "opencv-python-headless>=4.11.0.86",
     "qdrant-client>=1.13.2",
-    "ray[serve,serve-grpc]==2.42.0",
+    "ray[serve,serve-grpc]>=2.52.0",
     "scipy>=1.15.2",
     "setuptools>=75.8.0",
 ]
