@@ -24,7 +24,7 @@
 ### Setup process
 1. Clone the TIB-AV-A repository including submodules:
     ```sh
-    git clone --recurse-submodules https://github.com/TIBHannover/tibava.git
+    git clone https://github.com/TIBHannover/tibava.git
     cd tibava
     ```
 
@@ -47,8 +47,8 @@
 
 4. Apply database migrations and build frontend packages:
     ```sh
-    sudo docker-compose exec backend uv run --package backend python3 backend/src/backend/manage.py migrate auth
-    sudo docker-compose exec backend uv run --package backend python3 backend/src/backend/manage.py migrate
+    sudo docker-compose exec backend python3 backend/src/backend/manage.py migrate auth
+    sudo docker-compose exec backend python3 backend/src/backend/manage.py migrate
     sudo docker-compose exec frontend npm install
     sudo docker-compose exec frontend npm run build
     ```
