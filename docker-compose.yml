@@ -41,7 +41,9 @@ services:
 
     working_dir: /app/
 
-    command: serve run inference_ray/deploy.yml
+    command: >
+      sh -c "ray start --head --dashboard-host=0.0.0.0 --dashboard-agent-listen-port=52365 --port=6379 &&
+      serve run --address=127.0.0.1:6379 inference_ray/deploy.yml"
     #command: uv run --package inference_ray serve run inference_ray/deploy.yml
     # command: ls inference_ray/deploy.yml
 

@@ -137,8 +137,8 @@ class AnalyserPluginManager(Manager):
             status = requests.get(
                 f"{self.status_base_url}/api/serve/applications/"
             ).json()
-        except:
-            logging.error("AnalyserPluginMananger: Can get status from ray server")
+        except Exception:
+            logging.exception("AnalyserPluginMananger: Can get status from ray server")
             return []
 
         running_model_map = {}
@@ -225,15 +225,14 @@ class AnalyserPluginManager(Manager):
                     "parameters": parameters,
                 },
             )
-        except:
-            logging.error("AnalyserPluginMananger: Can start plugin on ray server")
+        except Exception:
+            logging.exception("AnalyserPluginMananger: Can start plugin on ray server")
             return []
 
         try:
             data = results.json()
-        except:
-            logging.error(f"AnalyserPluginMananger: {results}")
-            logging.error("AnalyserPluginMananger: Can decode response from ray server")
+        except Exception:
+            logging.exception(f"AnalyserPluginMananger: Can decode response from ray server: {results}")
             return []
 
         return data

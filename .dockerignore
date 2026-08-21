@@ -18,6 +18,9 @@ data/
 *.db
 *.log
 
+# --- Frontend (has its own build context, not needed by the Python services) ---
+frontend/
+
 # --- IDEs & System Junk ---
 .idea/
 .vscode/

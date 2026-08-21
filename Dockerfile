@@ -51,7 +51,6 @@ COPY --from=builder /app/.venv /app/.venv
 COPY .python-version /app/.python-version
 COPY analyser/ /app/analyser/
 COPY backend/ /app/backend/
-COPY frontend/ /app/frontend/
 COPY inference_ray/ /app/inference_ray/
 COPY packages/ /app/packages/
 COPY pyproject.toml /app/pyproject.toml
