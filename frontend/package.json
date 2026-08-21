@@ -16,6 +16,7 @@
     "d3-cloud": "^1.2.5",
     "d3-interpolate": "^3.0.1",
     "google-palette": "^1.1.0",
+    "maplibre-gl": "^1.15.3",
     "paper": "^0.12.15",
     "pinia": "^2.0.14",
     "pinia-plugin-persistedstate": "^1.6.1",

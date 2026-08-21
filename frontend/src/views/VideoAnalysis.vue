@@ -3,12 +3,7 @@
     <v-container fluid>
       <v-row class="ma-2">
         <v-col cols="6">
-          <v-card
-            class="d-flex flex-column flex-nowrap px-2"
-            elevation="2"
-            v-resize="onVideoResize"
-            ref="videoCard"
-          >
+          <v-card class="d-flex flex-column flex-nowrap px-2" elevation="2" v-resize="onVideoResize" ref="videoCard">
             <v-row>
               <v-card-title>
                 {{ playerStore.videoName }}
@@ -20,9 +15,6 @@
                 <VideoPlayer @resize="onVideoResize" />
               </v-col>
             </v-row>
-            <v-row class="mb-2 px-4">
-              <TimeSelector width="100%" @resize="onVideoResize" />
-            </v-row>
           </v-card>
         </v-col>
 
@@ -33,12 +25,7 @@
             </div>
             <div class="loading-text">Loading...</div>
           </div>
-          <v-card
-            v-else
-            elevation="2"
-            ref="resultCard"
-            :height="resultCardHeight"
-          >
+          <v-card v-else elevation="2" ref="resultCard" :height="resultCardHeight">
             <div class="sticky-tabs-bar">
               <v-tabs v-model="tab" centered show-arrows>
                 <v-tabs-slider />
@@ -46,62 +33,46 @@
                 <v-tab>Faces</v-tab>
                 <v-tab>Places</v-tab>
                 <v-tab>Annotations</v-tab>
+                <v-tab>Map</v-tab>
                 <v-tab>Transcript</v-tab>
                 <v-tab>Word Cloud</v-tab>
               </v-tabs>
             </div>
 
-            <v-tabs-items v-model="tab" style="height: 92%">
+            <v-tabs-items v-model="tab" style="height: 92%;">
               <v-tab-item style="height: 100%">
+
                 <div :class="['d-flex', 'flex-column', 'px-2', 'mx-4', 'my-2']">
-                  <v-select
-                    solo
-                    hide-details
-                    dense
-                    :items="shotsList"
-                    v-model="selectedShots"
-                  />
+                  <v-select solo hide-details dense :items="shotsList" v-model="selectedShots" />
                 </div>
                 <ShotsOverview />
               </v-tab-item>
 
               <v-tab-item style="height: 100%">
+
                 <div :class="['d-flex', 'flex-column', 'px-2', 'mx-4', 'my-2']">
-                  <v-select
-                    solo
-                    hide-details
-                    dense
-                    :items="faceClusteringList"
-                    v-model="selectedFaceClustering"
-                  />
+                  <v-select solo hide-details dense :items="faceClusteringList" v-model="selectedFaceClustering" />
                 </div>
                 <div :class="['d-flex', 'flex-column', 'px-2', 'mx-4', 'my-2']">
                   <PersonGraph />
                 </div>
-                <ClusterTimelineItemOverview
-                  name="Face"
-                  :clusters="faceClusters"
-                ></ClusterTimelineItemOverview>
+                <ClusterTimelineItemOverview name="Face" :clusters="faceClusters"></ClusterTimelineItemOverview>
               </v-tab-item>
 
               <v-tab-item style="height: 100%">
+
                 <div :class="['d-flex', 'flex-column', 'px-2', 'mx-4', 'my-2']">
-                  <v-select
-                    solo
-                    hide-details
-                    dense
-                    :items="placeClusteringList"
-                    v-model="selectedPlaceClustering"
-                  />
+                  <v-select solo hide-details dense :items="placeClusteringList" v-model="selectedPlaceClustering" />
                 </div>
-                <ClusterTimelineItemOverview
-                  name="Place"
-                  :clusters="placeClusters"
-                ></ClusterTimelineItemOverview>
+                <ClusterTimelineItemOverview name="Place" :clusters="placeClusters"></ClusterTimelineItemOverview>
               </v-tab-item>
 
-              <v-tab-item>
+              <v-tab-item style="height: 100%">
                 <CurrentEntitiesOverView />
+              </v-tab-item>
+
+              <v-tab-item style="height: 100%">
+                <Geolocation variant="map" />
               </v-tab-item>
 
               <v-tab-item style="height: 100%">
@@ -124,23 +95,18 @@
 
       <v-row class="ma-2">
         <v-col>
-          <v-card
-            class="d-flex flex-column flex-nowrap"
-            max-width="100%"
-            elevation="2"
-            scrollable="False"
-          >
-            <v-card-title> Timelines </v-card-title>
+          <v-card class="d-flex flex-column flex-nowrap" max-width="100%" elevation="2" scrollable="False">
+            <v-card-title>
+              Geolocation timeline
+              <v-chip class="ml-3" small outlined color="deep-purple">Mock data</v-chip>
+            </v-card-title>
             <v-flex grow class="mb-2 px-4">
-              <Timeline ref="timeline" width="100%"> </Timeline>
+              <Geolocation variant="timeline" />
             </v-flex>
           </v-card>
         </v-col>
       </v-row>
       <ModalTimelineSegmentAnnotate :show.sync="annotationDialog.show" />
-      <ModalTerms v-model="termsDialog.show" :videoId="$route.params.id">
-        <template v-slot:activator="{ on, attrs }"><p></p> </template>
-      </ModalTerms>
     </v-container>
   </v-main>
 </template>
@@ -148,15 +114,12 @@
 <script>
 import VideoPlayer from "@/components/VideoPlayer.vue";
 import TranscriptOverview from "@/components/TranscriptOverview.vue";
-import Timeline from "@/components/Timeline.vue";
-import TimeSelector from "@/components/TimeSelector.vue";
 import CurrentEntitiesOverView from "@/components/CurrentEntitiesOverView.vue";
 import ModalTimelineSegmentAnnotate from "@/components/ModalTimelineSegmentAnnotate.vue";
 import ShotsOverview from "@/components/ShotsOverview.vue";
 import WordcloudCard from "@/components/WordcloudCard.vue";
 import VisualizationMenu from "@/components/VisualizationMenu.vue";
 import PersonGraph from "../components/PersonGraph.vue";
-import ModalTerms from "../components/ModalTerms.vue";
 
 import * as Keyboard from "../plugins/keyboard.js";
 // import store from "../store/index.js";
@@ -173,6 +136,7 @@ import { usePluginRunStore } from "../store/plugin_run.js";
 import { useClusterTimelineItemStore } from "../store/cluster_timeline_item";
 import { useShotStore } from "@/store/shot";
 import ClusterTimelineItemOverview from "../components/ClusterTimelineItemOverview.vue";
+import Geolocation from "@/components/Geolocation.vue";
 
 export default {
   data() {
@@ -192,9 +156,6 @@ export default {
       annotationsLUT: {},
       //
       annotationDialog: {
-        show: false,
-      },
-      termsDialog: {
         show: false,
       },
       isLoading: true,
@@ -365,10 +326,6 @@ export default {
         videoId: this.$route.params.id,
         addResults: addResults,
       });
-
-      if (this.playerStore.video.terms_accepted == false) {
-        this.termsDialog.show = true;
-      }
     },
     async fetchPlugin() {
       await this.pluginRunStore.fetchForVideo({
@@ -396,9 +353,7 @@ export default {
     selectedShots: {
       get() {
         const selectedShots = this.shotStore.selectedShots;
-        return this.selectedShotsProxy === null
-          ? selectedShots
-          : this.selectedShotsProxy;
+        return this.selectedShotsProxy === null ? selectedShots : this.selectedShotsProxy;
       },
       set(val) {
         this.selectedShotsProxy = val;
@@ -407,51 +362,35 @@ export default {
       },
     },
     shotsList() {
-      return this.shotStore.shotsList.map((e) => {
-        return { text: e.name, value: e.index };
-      });
+      return this.shotStore.shotsList.map((e) => { return { text: e.name, value: e.index } });
     },
     selectedFaceClustering: {
       get() {
-        const selectedFaceClustering =
-          this.clusterTimelineItemStore.selectedFaceClustering;
-        return this.selectedFaceClusteringProxy === null
-          ? selectedFaceClustering
-          : this.selectedFaceClusteringProxy;
+        const selectedFaceClustering = this.clusterTimelineItemStore.selectedFaceClustering;
+        return this.selectedFaceClusteringProxy === null ? selectedFaceClustering : this.selectedFaceClusteringProxy;
       },
       set(val) {
         this.selectedFaceClusteringProxy = val;
 
-        this.clusterTimelineItemStore.setSelectedFaceClustering({
-          pluginRunId: val,
-        });
+        this.clusterTimelineItemStore.setSelectedFaceClustering({ pluginRunId: val });
       },
     },
     faceClusteringList() {
-      return this.clusterTimelineItemStore.faceClusteringList.map((e) => {
-        return { text: e.name, value: e.index };
-      });
+      return this.clusterTimelineItemStore.faceClusteringList.map((e) => { return { text: e.name, value: e.index } });
     },
     selectedPlaceClustering: {
       get() {
-        const selectedPlaceClustering =
-          this.clusterTimelineItemStore.selectedPlaceClustering;
-        return this.selectedPlaceClusteringProxy === null
-          ? selectedPlaceClustering
-          : this.selectedPlaceClusteringProxy;
+        const selectedPlaceClustering = this.clusterTimelineItemStore.selectedPlaceClustering;
+        return this.selectedPlaceClusteringProxy === null ? selectedPlaceClustering : this.selectedPlaceClusteringProxy;
       },
       set(val) {
         this.selectedPlaceClusteringProxy = val;
 
-        this.clusterTimelineItemStore.setSelectedPlaceClustering({
-          pluginRunId: val,
-        });
+        this.clusterTimelineItemStore.setSelectedPlaceClustering({ pluginRunId: val });
       },
     },
     placeClusteringList() {
-      return this.clusterTimelineItemStore.placeClusteringList.map((e) => {
-        return { text: e.name, value: e.index };
-      });
+      return this.clusterTimelineItemStore.placeClusteringList.map((e) => { return { text: e.name, value: e.index } });
     },
     selectedTimeline: {
       get() {
@@ -474,21 +413,17 @@ export default {
       useTimelineSegmentAnnotationStore,
       useShortcutStore,
       useAnnotationShortcutStore,
-      useClusterTimelineItemStore
+      useClusterTimelineItemStore,
     ),
   },
   async created() {
     // fetch the data when the view is created and the data is
-    this.videoStore.pushSelected(this.$route.params.id);
-    console.log(this.videoStore.videoSelected);
     await this.fetchData({ addResults: true });
     this.isLoading = false;
   },
   components: {
     VideoPlayer,
     TranscriptOverview,
-    Timeline,
-    TimeSelector,
     CurrentEntitiesOverView,
     ModalTimelineSegmentAnnotate,
     ShotsOverview,
@@ -496,7 +431,7 @@ export default {
     VisualizationMenu,
     PersonGraph,
     ClusterTimelineItemOverview,
-    ModalTerms,
+    Geolocation
   },
 
   watch: {
@@ -518,13 +453,13 @@ export default {
         this.resultCardHeight = this.$refs.videoCard.$el.clientHeight;
         this.$refs.main.$el.focus();
       }
-    },
+    }
   },
 };
 </script>
 
 <style scoped>
-.logo > img {
+.logo>img {
   max-height: 56px;
 }
 
