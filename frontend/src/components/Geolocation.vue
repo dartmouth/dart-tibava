@@ -12,11 +12,6 @@
 
     <div class="map-frame">
       <div ref="mapCanvas" class="map-canvas" role="img" :aria-label="mapAriaLabel"></div>
-      <div v-if="hoveredLocation" class="map-tooltip"
-        :class="{ 'map-tooltip--right': mapTooltipX(hoveredLocation) > 80 }" :style="mapTooltipStyle(hoveredLocation)">
-        <strong>{{ hoveredLocation.location }}</strong>
-        <span>{{ formatCoordinates(hoveredLocation) }}</span>
-      </div>
       <div class="map-source">OpenStreetMap road data · test use</div>
       <div class="map-confidence">{{ currentSegment.tag ? `${currentSegment.tag} ·
         ${confidenceLabel(currentSegment.confidence)} confidence` : "No prediction" }}</div>
@@ -158,10 +153,6 @@ const SHOT_TEMPLATE = INTENSIVE_TEST_SEQUENCE.map(([tag, confidence], index) => 
 export default {
   data() {
     return {
-      hoveredLocation: null,
-      mapZoom: 1,
-      mapPan: { x: 0, y: 0 },
-      mapDrag: null,
       map: null,
       mapReady: false,
     };
@@ -180,13 +171,13 @@ export default {
     if (this.map) this.map.remove();
   },
   watch: {
-    currentSegment() {
+    "currentSegment.id"() {
       this.updateActiveLocation();
     },
   },
   computed: {
     duration() {
-      return this.playerStore.videoDuration > 0 ? this.playerStore.videoDuration : 15.482;
+      return this.playerStore.videoDuration || 0;
     },
     currentTime() {
       return Math.min(Math.max(this.playerStore.currentTime || 0, 0), this.duration);
@@ -204,17 +195,13 @@ export default {
       return this.segments.find((segment) => this.currentTime >= segment.start && this.currentTime < segment.end) || this.segments[this.segments.length - 1];
     },
     sceneLegend() {
-      return this.mapLocations;
+      const seen = new Set();
+      return this.segments
+        .filter((segment) => segment.tag && !seen.has(segment.tag) && seen.add(segment.tag))
+        .map((segment) => ({ tag: segment.tag, color: segment.color }));
     },
     mapLocations() {
       return LOCATION_FIXTURE;
-    },
-    detailLocations() {
-      return DETAIL_LOCATION_FIXTURE;
-    },
-    visibleMapLabels() {
-      const every = this.mapZoom >= 1.8 ? 1 : 3;
-      return this.mapLocations.filter((location, index) => index % every === 0);
     },
     mapAriaLabel() {
       return this.currentSegment.tag ? `Mock map annotation at ${this.currentSegment.location}` : "Mock map annotation with no location prediction for the selected shot";
@@ -319,26 +306,7 @@ export default {
       this.map.flyTo({ center: coordinates, zoom: Math.max(this.map.getZoom(), 5), essential: true });
     },
     colorFor(tag) {
-      return tag ? LOCATION_BY_TAG[tag].color : "transparent";
-    },
-    markerX(segment) {
-      return ((segment.longitude + 180) / 360) * 720;
-    },
-    markerY(segment) {
-      return ((90 - segment.latitude) / 180) * 360;
-    },
-    mapTooltipX(location) {
-      const frameWidth = this.$refs.mapFrame ? this.$refs.mapFrame.clientWidth : 720;
-      return 50 + ((this.markerX(location) / 720) * 100 - 50) * this.mapZoom + (this.mapPan.x / frameWidth) * 100;
-    },
-    mapTooltipStyle(location) {
-      const x = this.mapTooltipX(location);
-      const frameHeight = this.$refs.mapFrame ? this.$refs.mapFrame.clientHeight : 360;
-      const y = 50 + ((this.markerY(location) / 360) * 100 - 50) * this.mapZoom + (this.mapPan.y / frameHeight) * 100;
-      return { left: `${x}%`, top: `${y}%` };
-    },
-    heatOpacity(segment) {
-      return 0.06 + segment.confidence * 0.8;
+      return tag ? (LOCATION_BY_TAG[tag]?.color ?? "transparent") : "transparent";
     },
     segmentStyle(segment) {
       const isLabelled = Boolean(segment.tag);
@@ -360,9 +328,6 @@ export default {
       const remainingSeconds = Math.floor(seconds % 60);
       return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
     },
-    formatCoordinates(segment) {
-      return `${segment.latitude.toFixed(2)}°, ${segment.longitude.toFixed(2)}°`;
-    },
     segmentAriaLabel(segment) {
       const interval = `${this.timecode(segment.start)} to ${this.timecode(segment.end)}`;
       return segment.tag ? `${segment.tag}, ${this.confidenceLabel(segment.confidence)} confidence, ${interval}` : `Unlabelled shot, ${interval}`;
@@ -374,78 +339,6 @@ export default {
     },
     jumpToSegment(segment) {
       this.setTime((segment.start + segment.end) / 2);
-    },
-    showLocation(location) {
-      this.hoveredLocation = location;
-    },
-    hideLocation() {
-      this.hoveredLocation = null;
-    },
-    setMapZoom(zoom) {
-      this.mapZoom = Math.min(Math.max(Number(zoom.toFixed(1)), 1), 3);
-      this.setMapPan(this.mapPan.x, this.mapPan.y);
-    },
-    zoomIn() {
-      this.setMapZoom(this.mapZoom + 0.25);
-    },
-    zoomOut() {
-      this.setMapZoom(this.mapZoom - 0.25);
-    },
-    resetMap() {
-      this.mapZoom = 1;
-      this.mapPan = { x: 0, y: 0 };
-    },
-    zoomFromWheel(event) {
-      this.setMapZoom(this.mapZoom + (event.deltaY < 0 ? 0.25 : -0.25));
-    },
-    focusLocation(location) {
-      this.showLocation(location);
-      this.setMapZoom(Math.max(this.mapZoom, 2));
-      this.$nextTick(() => {
-        const frame = this.$refs.mapFrame;
-        if (!frame) return;
-        const x = (this.markerX(location) / 720) * frame.clientWidth;
-        const y = (this.markerY(location) / 360) * frame.clientHeight;
-        this.setMapPan(
-          frame.clientWidth / 2 - (x - frame.clientWidth / 2) * this.mapZoom,
-          frame.clientHeight / 2 - (y - frame.clientHeight / 2) * this.mapZoom,
-        );
-      });
-    },
-    mapPanLimits() {
-      const frame = this.$refs.mapFrame;
-      if (!frame) return { x: 0, y: 0 };
-      return {
-        x: (frame.clientWidth * (this.mapZoom - 1)) / 2,
-        y: (frame.clientHeight * (this.mapZoom - 1)) / 2,
-      };
-    },
-    setMapPan(x, y) {
-      const limits = this.mapPanLimits();
-      this.mapPan = {
-        x: Math.min(Math.max(x, -limits.x), limits.x),
-        y: Math.min(Math.max(y, -limits.y), limits.y),
-      };
-    },
-    startMapPan(event) {
-      if (this.mapZoom <= 1 || event.button !== 0 || event.target.closest(".map-controls")) return;
-      event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
-      this.mapDrag = {
-        startX: event.clientX,
-        startY: event.clientY,
-        panX: this.mapPan.x,
-        panY: this.mapPan.y,
-      };
-    },
-    moveMapPan(event) {
-      if (!this.mapDrag) return;
-      this.setMapPan(this.mapDrag.panX + event.clientX - this.mapDrag.startX, this.mapDrag.panY + event.clientY - this.mapDrag.startY);
-    },
-    endMapPan(event) {
-      if (!this.mapDrag) return;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-      this.mapDrag = null;
     },
     seekFromTimeline(event) {
       const bounds = this.$refs.timeline.getBoundingClientRect();
@@ -472,179 +365,9 @@ export default {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .68), 0 6px 18px rgba(15, 49, 71, .08);
 }
 
-.map-frame--draggable {
-  cursor: grab;
-  touch-action: none;
-}
-
-.map-frame--dragging {
-  cursor: grabbing;
-}
-
-.map {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 2 / 1;
-  transform-origin: center;
-  transition: transform .22s cubic-bezier(.2, .7, .2, 1);
-}
-
 .map-canvas {
   width: 100%;
   height: 100%;
-}
-
-.ocean-current {
-  fill: none;
-  stroke: rgba(255, 255, 255, .42);
-  stroke-width: 1.5;
-}
-
-.ocean-current--lower {
-  stroke-width: 1;
-}
-
-.continent {
-  fill: #eef0e2;
-  stroke: #bdc8b6;
-  stroke-width: 1.05;
-}
-
-.continent--north-america,
-.continent--europe {
-  fill: #edf2df;
-}
-
-.continent--south-america,
-.continent--africa {
-  fill: #e6eed9;
-}
-
-.continent--asia {
-  fill: #edf0dc;
-}
-
-.continent--australia {
-  fill: #e8edd5;
-}
-
-.terrain-layer path {
-  fill: #d6e3bc;
-  opacity: .8;
-}
-
-.border-layer path {
-  fill: none;
-  stroke: #c4ccb5;
-  stroke-width: .65;
-  stroke-dasharray: 2 2;
-  opacity: .95;
-}
-
-.road-layer {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.road {
-  stroke: #ffffff;
-}
-
-.road--primary {
-  stroke-width: 2.4;
-  opacity: .9;
-}
-
-.road--secondary {
-  stroke: #d5dde0;
-  stroke-width: 1.2;
-  opacity: .85;
-}
-
-.street-detail-layer {
-  pointer-events: none;
-  opacity: .64;
-  mix-blend-mode: multiply;
-}
-
-.map-location,
-.map-current-marker {
-  cursor: pointer;
-}
-
-.map-location__halo {
-  fill: #fff;
-  opacity: .7;
-  transition: r .16s ease;
-}
-
-.map-location__dot {
-  stroke: #fff;
-  stroke-width: 1.1;
-}
-
-.map-location:hover .map-location__halo {
-  r: 9;
-  opacity: .92;
-}
-
-.city-label {
-  fill: #42545b;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 7px;
-  font-weight: 600;
-  paint-order: stroke;
-  stroke: rgba(244, 249, 247, .96);
-  stroke-width: 2.4px;
-  stroke-linejoin: round;
-}
-
-.detail-location-dot {
-  fill: #4e6570;
-  stroke: #fff;
-  stroke-width: .8;
-}
-
-.detail-location-label {
-  fill: #40545c;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 5.5px;
-  font-weight: 600;
-  paint-order: stroke;
-  stroke: rgba(245, 250, 249, .96);
-  stroke-width: 2px;
-  stroke-linejoin: round;
-}
-
-.map-frame--dragging .map-location,
-.map-frame--dragging .map-current-marker {
-  cursor: grabbing;
-}
-
-.map-tooltip {
-  position: absolute;
-  z-index: 2;
-  min-width: 122px;
-  padding: 7px 9px;
-  border-radius: 6px;
-  background: rgba(15, 23, 42, 0.9);
-  color: white;
-  font-size: 12px;
-  line-height: 1.35;
-  pointer-events: none;
-  transform: translate(-50%, calc(-100% - 10px));
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
-}
-
-.map-tooltip--right {
-  transform: translate(calc(-100% + 10px), calc(-100% - 10px));
-}
-
-.map-tooltip strong,
-.map-tooltip span {
-  display: block;
 }
 
 .map-source {
@@ -765,9 +488,4 @@ export default {
   font-size: 11px;
 }
 
-@media (max-width: 960px) {
-  .map {
-    aspect-ratio: 2 / 1;
-  }
-}
 </style>
