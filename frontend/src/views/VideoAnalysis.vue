@@ -418,6 +418,7 @@ export default {
   },
   async created() {
     // fetch the data when the view is created and the data is
+    this.videoStore.pushSelected(this.$route.params.id);
     await this.fetchData({ addResults: true });
     this.isLoading = false;
   },
