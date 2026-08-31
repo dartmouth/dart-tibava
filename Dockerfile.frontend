@@ -8,6 +8,25 @@ COPY frontend/package.json frontend/package-lock.json* /app/frontend/
 RUN npm install
 
 COPY frontend/ /app/frontend/
+
+# Vue CLI inlines app.config.js into the built JS bundle at compile time, so
+# the backend/thumbnail locations must be correct *before* `npm run build`
+# runs, not injected afterwards. The committed frontend/app.config.js
+# hardcodes http://localhost:8000, which only works for local docker-compose
+# (where the browser reaches the backend container via a published port on
+# the host). The k8s Deployment instead runs frontend and backend as
+# containers in the same Pod behind a single Service/LoadBalancer that only
+# exposes the frontend's port 80, so the browser must call the backend
+# same-origin through the frontend's nginx reverse proxy (see
+# frontend/default.conf's /backend/ location) rather than a separate host.
+# These ARGs default to that same-origin/relative deployment shape and can
+# be overridden at build time (e.g. --build-arg API_LOCATION=http://host:8000)
+# for other deployment topologies.
+ARG API_LOCATION=/backend
+ARG THUMBNAIL_LOCATION=/thumbnails
+RUN printf 'module.exports = {\n  API_LOCATION: "%s",\n  THUMBNAIL_LOCATION: "%s",\n};\n' \
+      "${API_LOCATION}" "${THUMBNAIL_LOCATION}" > /app/frontend/app.config.js
+
 RUN npm run build
 
 # --- Stage 2: Serve the built app with nginx ---
