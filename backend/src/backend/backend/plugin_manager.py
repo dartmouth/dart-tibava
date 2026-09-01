@@ -132,7 +132,14 @@ class PluginManager:
                     result["result"] = plugin_result
 
             except Exception:
-                logger.exception(f"Failed to run plugin {plugin_run.type}")
+                logger.exception(
+                    "Plugin execution failed: plugin=%s plugin_run=%s video=%s user=%s parameters=%r",
+                    plugin,
+                    plugin_run.id if plugin_run is not None else None,
+                    video.id if video is not None else None,
+                    user.id if user is not None else None,
+                    parameters,
+                )
 
                 if plugin_run is not None:
                     plugin_run.status = PluginRun.STATUS_ERROR
@@ -249,7 +256,14 @@ def run_plugin(self, args):
         return
 
     except Exception:
-        logger.exception(f"Plugin run failed for {plugin}")
+        logger.exception(
+            "Plugin execution failed: plugin=%s plugin_run=%s video=%s user=%s parameters=%r",
+            plugin,
+            plugin_run_db.id if plugin_run_db is not None else None,
+            video_db.id,
+            user_db.id,
+            parameters,
+        )
 
     if plugin_run_db is not None:
         plugin_run_db.status = PluginRun.STATUS_ERROR

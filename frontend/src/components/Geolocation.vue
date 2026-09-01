@@ -172,7 +172,9 @@ export default {
   },
   watch: {
     "currentSegment.id"() {
-      this.updateActiveLocation();
+      // Playback updates currentTime continuously. Watching the segment ID means
+      // the map only moves when playback enters a new geolocation interval.
+      this.updateActiveLocation({ flyToLocation: true });
     },
   },
   computed: {
@@ -288,11 +290,19 @@ export default {
         this.updateActiveLocation();
       });
     },
-    updateActiveLocation() {
+    updateActiveLocation({ flyToLocation = false } = {}) {
       if (!this.mapReady || !this.map || !this.map.getSource("geo-active-location")) return;
       this.map.getSource("geo-active-location").setData(
         this.currentSegment.tag ? this.toFeatureCollection([this.currentSegment]) : this.toFeatureCollection([]),
       );
+      if (flyToLocation && this.currentSegment.tag) {
+        this.map.flyTo({
+          center: [this.currentSegment.longitude, this.currentSegment.latitude],
+          zoom: Math.max(this.map.getZoom(), 5),
+          duration: 700,
+          essential: true,
+        });
+      }
     },
     openLocationPopup(event) {
       const feature = event.features && event.features[0];

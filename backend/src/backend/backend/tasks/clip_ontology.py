@@ -139,6 +139,7 @@ class CLIPOntology(Task):
 
         with transaction.atomic():
             with aggregate_result[1]["aggregated_scalars"] as data:
+                annotation_timeline_db = None
                 # Annotate shots
                 if shots_id:
                     annotater_result = self.run_analyser(
@@ -186,10 +187,11 @@ class CLIPOntology(Task):
                 data.extract_all(manager)
                 timeline_dict = {}
                 data_list = {}
+                plugin_run_result_ids = []
                 for index, sub_data in zip(data.index, data.data):
                     plugin_run_result_db = PluginRunResult.objects.create(
                         plugin_run=plugin_run,
-                        data_id=sub_data,
+                        data_id=sub_data.id,
                         name="face_emotion",
                         type=PluginRunResult.TYPE_SCALAR,
                     )
@@ -204,15 +206,23 @@ class CLIPOntology(Task):
                     timeline_dict.update({index: timeline_db.id.hex})
                     data_list.update({index: sub_data.id})
 
+                    plugin_run_result_ids.append(plugin_run_result_db.id.hex)
+
+                timelines = timeline_dict
+                result_data = data_list
+                if annotation_timeline_db is not None:
+                    timelines = {
+                        "annotations": annotation_timeline_db.id.hex,
+                        **timeline_dict,
+                    }
+                    result_data = {
+                        "annotations": data.id,
+                        **data_list,
+                    }
+
                 return {
                     "plugin_run": plugin_run.id.hex,
-                    "plugin_run_results": [plugin_run_result_db.id.hex],
-                    "timelines": {
-                        "annotations": annotation_timeline_db,
-                        **timeline_dict,
-                    },
-                    "data": {
-                        "annotations": result[1]["aggregated_scalars"].id,
-                        **data_list,
-                    },
+                    "plugin_run_results": plugin_run_result_ids,
+                    "timelines": timelines,
+                    "data": result_data,
                 }

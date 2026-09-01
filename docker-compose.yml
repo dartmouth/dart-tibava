@@ -1,10 +1,7 @@
 services:
   inference_ray:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        WORKSPACE_MEMBER: inference_ray
+    image: dart-tibava-runtime
+    pull_policy: never
 
     environment:
       - HF_HOME=/models
@@ -48,11 +45,8 @@ services:
     # command: ls inference_ray/deploy.yml
 
   analyser:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        WORKSPACE_MEMBER: analyser
+    image: dart-tibava-runtime
+    pull_policy: never
 
     volumes:
       # - type: bind
@@ -104,11 +98,8 @@ services:
       - "127.0.0.1:6380:6380"
 
   celery:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        WORKSPACE_MEMBER: backend
+    image: dart-tibava-runtime
+    pull_policy: never
 
     volumes:
       # - type: bind
@@ -155,6 +146,7 @@ services:
     command: celery -A tibava worker -l INFO  --concurrency=20 --pool=threads
 
   backend:
+    image: dart-tibava-runtime
     build:
       context: .
       dockerfile: Dockerfile
@@ -209,16 +201,17 @@ services:
       - celery
 
   frontend:
-    image: frontend
+    image: dart-tibava-frontend
     ports:
       - 8080:8080
       - 80:80
     build:
-      context: ./frontend
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        API_LOCATION: http://localhost:8000
+        THUMBNAIL_LOCATION: http://localhost/thumbnails
     volumes:
-      - type: bind
-        source: ./frontend/
-        target: /app/frontend
       - type: bind
         source: ./data/predictions/
         target: /thumbnails
