@@ -116,6 +116,9 @@ class PluginRunNew(View):
                 return JsonResponse({"status": "error", "type": "not_exist"})
 
             user_db = request.user
+            # Keep generic AI context outside the plugin parameter array so
+            # plugin-specific parsers do not need to whitelist video_year.
+            video_year = request.POST.get("video_year")
 
             result = plugin_manager(
                 plugin,
@@ -123,6 +126,7 @@ class PluginRunNew(View):
                 video=video_db,
                 run_async=True,
                 parameters=valid_parameters,
+                video_year=video_year,
             )
 
             if result:

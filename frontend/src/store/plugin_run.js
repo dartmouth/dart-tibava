@@ -33,7 +33,7 @@ export const usePluginRunStore = defineStore("pluginRun", {
     }
   },
   actions: {
-    async submit({ plugin, parameters = [], videoId = null }) {
+    async submit({ plugin, parameters = [], videoId = null, videoYear = null }) {
       const formData = new FormData();
       formData.append("plugin", plugin);
       let jsonParameters = []
@@ -46,6 +46,11 @@ export const usePluginRunStore = defineStore("pluginRun", {
         }
       })
       formData.append("parameters", JSON.stringify(jsonParameters));
+      // video_year is intentionally a top-level optional request field. It is
+      // invocation context, rather than a plugin-specific parser parameter.
+      if (videoYear !== null && videoYear !== undefined && videoYear !== "") {
+        formData.append("video_year", videoYear);
+      }
 
       //use video id or take it from the current video
       let video_id = videoId;

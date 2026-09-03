@@ -105,10 +105,20 @@ class BLIPVQA(Task):
         if result is None:
             raise Exception
 
+        vqa_parameters = {"query_term": parameters.get("query_term")}
+        # video_year is optional generic invocation context; BLIP VQA opts in
+        # by adding it only to the analyser call when the user supplied it.
+        video_year = kwargs.get("video_year")
+        if video_year is not None:
+            vqa_parameters["video_year"] = video_year
+
+        # TODO: persist generic invocation context on PluginRun (for example,
+        # in a JSONField) so video_year is visible when runs are inspected or
+        # reproduced later.
         result = self.run_analyser(
             client,
             "blip_vqa",
-            parameters={"query_term": parameters.get("query_term")},
+            parameters=vqa_parameters,
             inputs={**result[0], "shots": shots_id},
             downloads=["annotations"],
         )

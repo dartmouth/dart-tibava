@@ -133,6 +133,21 @@
                         </v-expansion-panel-content>
                       </v-expansion-panel>
                     </v-expansion-panels>
+                    <!-- Generic invocation context is kept separate from the
+                    selected plugin's own parameters. -->
+                    <v-expansion-panels>
+                      <v-expansion-panel>
+                        <v-expansion-panel-header expand-icon="mdi-menu-down">
+                          {{ $t("modal.plugin.analysis_context") }}
+                        </v-expansion-panel-header>
+                        <v-expansion-panel-content>
+                          <Parameters
+                            :parameters="analysisContextParameters"
+                            :videoIds="videoIds"
+                          ></Parameters>
+                        </v-expansion-panel-content>
+                      </v-expansion-panel>
+                    </v-expansion-panels>
                   </v-card-text>
                   <v-card-actions class="pt-0"> </v-card-actions>
                 </v-card>
@@ -159,7 +174,8 @@
             runPlugin(
               selected.plugin,
               selected.parameters,
-              selected.optional_parameters
+              selected.optional_parameters,
+              analysisContextParameters[0].value
             )
           "
           >{{ $t("modal.plugin.run") }}</v-btn
@@ -187,6 +203,20 @@ export default {
       open: [1, 2],
       search: null,
       active: [],
+      // Sent as an optional plugin-invocation field, not as a parameter that
+      // every plugin-specific backend parser would have to recognise.
+      analysisContextParameters: [
+        {
+          field: "number_field",
+          name: "video_year",
+          value: null,
+          min: 1888,
+          max: 2100,
+          step: 1,
+          text: this.$t("modal.plugin.video_year"),
+          hint: this.$t("modal.plugin.video_year_hint"),
+        },
+      ],
       plugins: [
         {
           id: 1,
@@ -1777,7 +1807,9 @@ export default {
     ...mapStores(usePluginRunStore, usePluginStore),
   },
   methods: {
-    async runPlugin(plugin, parameters, optional_parameters) {
+    async runPlugin(plugin, parameters, optional_parameters, videoYear = null) {
+      // Keep videoYear out of parameters; it is shared invocation context that
+      // compatible AI plugins may opt into through their task kwargs.
       parameters = parameters.concat(optional_parameters);
       parameters = parameters.map((e) => {
         if ("file" in e) {
@@ -1811,7 +1843,12 @@ export default {
           }
         }
         this.pluginRunStore
-          .submit({ plugin: plugin, parameters: video_params, videoId: video })
+          .submit({
+            plugin: plugin,
+            parameters: video_params,
+            videoId: video,
+            videoYear,
+          })
           .then(() => {
             this.dialog = false;
           });
