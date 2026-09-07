@@ -1,7 +1,10 @@
 services:
   inference_ray:
-    image: dart-tibava-runtime
-    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        WORKSPACE_MEMBER: inference_ray
 
     environment:
       - HF_HOME=/models
@@ -45,8 +48,11 @@ services:
     # command: ls inference_ray/deploy.yml
 
   analyser:
-    image: dart-tibava-runtime
-    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        WORKSPACE_MEMBER: analyser
 
     volumes:
       # - type: bind
@@ -98,8 +104,11 @@ services:
       - "127.0.0.1:6380:6380"
 
   celery:
-    image: dart-tibava-runtime
-    pull_policy: never
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        WORKSPACE_MEMBER: backend
 
     volumes:
       # - type: bind
@@ -146,7 +155,6 @@ services:
     command: celery -A tibava worker -l INFO  --concurrency=20 --pool=threads
 
   backend:
-    image: dart-tibava-runtime
     build:
       context: .
       dockerfile: Dockerfile
