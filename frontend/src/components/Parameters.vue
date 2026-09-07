@@ -4,11 +4,6 @@
       <v-text-field v-model="parameter.value" :label="parameter.text" v-if="parameter.field == 'text_field'"
         :key="parameter.name"></v-text-field>
 
-      <!-- Reusable numeric field for invocation context and future plugin parameters. -->
-      <v-text-field v-model.number="parameter.value" :label="parameter.text" :hint="parameter.hint"
-        :min="parameter.min" :max="parameter.max" :step="parameter.step" type="number"
-        v-if="parameter.field == 'number_field'" :key="parameter.name" persistent-hint></v-text-field>
-
       <v-select v-model="parameter.value" :items="parameter.items" :label="parameter.text"
         v-if="parameter.field == 'select_options'" :key="parameter.name"></v-select>
 

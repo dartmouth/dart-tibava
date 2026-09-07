@@ -9,7 +9,6 @@ from celery import shared_task
 from backend.models import PluginRun, Video, TibavaUser, PluginRunResult
 
 from backend.exceptions import RateLimitExceededException
-from backend.utils.parser import parse_optional_video_year
 from tibava_data import DataManager
 
 from django.conf import settings
@@ -68,19 +67,12 @@ class PluginManager:
         video: Video,
         user: TibavaUser,
         parameters: List = None,
-        video_year: int | str | None = None,
         run_async: bool = True,
         dry_run: bool = False,
         **kwargs,
     ):
         if parameters is None:
             parameters = []
-
-        # Generic invocation context is validated once and forwarded through
-        # task kwargs, bypassing unrelated plugin-specific parameter parsers.
-        video_year = parse_optional_video_year(video_year)
-        if video_year is not None:
-            kwargs["video_year"] = video_year
 
         if plugin not in self.plugins():
             print("Unknown Plugin")

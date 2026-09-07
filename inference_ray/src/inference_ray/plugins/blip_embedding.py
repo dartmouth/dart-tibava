@@ -140,7 +140,7 @@ default_config = {
 }
 
 
-prob_parameters = {"query_term": "", "video_year": None}
+prob_parameters = {"query_term": ""}
 
 
 img_embd_requires = {
@@ -304,19 +304,6 @@ class BlipVQA(
             self.model_init()
 
         query_term = parameters["query_term"]
-        # The optional context is included in every frame-level VQA prompt.
-        video_year = parameters.get("video_year")
-        if video_year is not None:
-            query_term = (
-                f"Temporal context: this video is from {video_year}. "
-                "Use this only to disambiguate historically plausible interpretations. "
-                "Answer from visible evidence and do not invent details. "
-                f"Question: {query_term}"
-            )
-
-        # TODO: a prompt is a soft constraint. Add validated post-processing or
-        # a constrained output schema here if the year must be enforced as a
-        # hard business rule.
         text_inputs = self.processor(text=query_term, return_tensors="pt").to(
             self.device, dtype=self.dtype
         )
