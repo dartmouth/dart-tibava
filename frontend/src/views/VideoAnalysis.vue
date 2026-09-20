@@ -149,10 +149,14 @@ import { useTimelineSegmentAnnotationStore } from "@/store/timeline_segment_anno
 import { useShortcutStore } from "@/store/shortcut";
 import { useAnnotationShortcutStore } from "../store/annotation_shortcut.js";
 import { usePluginRunStore } from "../store/plugin_run.js";
+import { usePluginRunResultStore } from "../store/plugin_run_result.js";
 import { useClusterTimelineItemStore } from "../store/cluster_timeline_item";
 import { useShotStore } from "@/store/shot";
+import { useAnnotationStore } from "@/store/annotation";
+import { useAnnotationCategoryStore } from "@/store/annotation_category";
 import ClusterTimelineItemOverview from "../components/ClusterTimelineItemOverview.vue";
 import Geolocation from "@/components/Geolocation.vue";
+import { buildGeolocationTimelineData } from "@/plugins/geolocationSampleData";
 
 export default {
   data() {
@@ -430,12 +434,35 @@ export default {
       useShortcutStore,
       useAnnotationShortcutStore,
       useClusterTimelineItemStore,
+      useAnnotationStore,
+      useAnnotationCategoryStore,
+      usePluginRunResultStore,
     ),
   },
   async created() {
     // fetch the data when the view is created and the data is
     this.videoStore.pushSelected(this.$route.params.id);
     await this.fetchData({ addResults: true });
+
+    // The geolocation plugin has no backend implementation yet, so its timeline
+    // is populated here from sample data using the same store actions a real
+    // plugin run's fetched results would use (see plugins/geolocationSampleData.js).
+    const videoId = this.$route.params.id;
+    const baseOrder = this.timelineStore
+      .forVideo(videoId)
+      .reduce((max, timeline) => Math.max(max, timeline.order), -1) + 1;
+    const geolocationData = buildGeolocationTimelineData({
+      videoId,
+      duration: this.playerStore.videoDuration,
+      baseOrder,
+    });
+    this.annotationCategoryStore.updateStore(geolocationData.annotationCategories);
+    this.annotationStore.updateStore(geolocationData.annotations);
+    this.timelineStore.updateStore(geolocationData.timelines);
+    this.timelineSegmentStore.updateStore(geolocationData.timelineSegments);
+    this.timelineSegmentAnnotationStore.updateStore(geolocationData.timelineSegmentAnnotations);
+    this.pluginRunResultStore.updateAll(geolocationData.pluginRunResults);
+
     this.isLoading = false;
   },
   components: {

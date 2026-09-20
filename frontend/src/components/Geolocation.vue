@@ -58,42 +58,7 @@ import { mapStores } from "pinia";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { usePlayerStore } from "@/store/player";
-
-// Deliberately broad fixture for exercising marker density, map panning, and timeline rendering.
-const LOCATION_FIXTURE = [
-  { tag: "Anchorage", latitude: 61.2181, longitude: -149.9003, location: "Anchorage, United States", color: "#4f46e5" },
-  { tag: "Honolulu", latitude: 21.3069, longitude: -157.8583, location: "Honolulu, United States", color: "#7c3aed" },
-  { tag: "Vancouver", latitude: 49.2827, longitude: -123.1207, location: "Vancouver, Canada", color: "#2563eb" },
-  { tag: "San Francisco", latitude: 37.7749, longitude: -122.4194, location: "San Francisco, United States", color: "#0891b2" },
-  { tag: "Mexico City", latitude: 19.4326, longitude: -99.1332, location: "Mexico City, Mexico", color: "#0f766e" },
-  { tag: "New York", latitude: 40.7128, longitude: -74.006, location: "New York, United States", color: "#16a34a" },
-  { tag: "Sao Paulo", latitude: -23.5505, longitude: -46.6333, location: "Sao Paulo, Brazil", color: "#65a30d" },
-  { tag: "Buenos Aires", latitude: -34.6037, longitude: -58.3816, location: "Buenos Aires, Argentina", color: "#ca8a04" },
-  { tag: "Reykjavik", latitude: 64.1466, longitude: -21.9426, location: "Reykjavik, Iceland", color: "#d97706" },
-  { tag: "London", latitude: 51.5072, longitude: -0.1276, location: "London, United Kingdom", color: "#ea580c" },
-  { tag: "Paris", latitude: 48.8566, longitude: 2.3522, location: "Paris, France", color: "#dc2626" },
-  { tag: "Rome", latitude: 41.9028, longitude: 12.4964, location: "Rome, Italy", color: "#e11d48" },
-  { tag: "Cairo", latitude: 30.0444, longitude: 31.2357, location: "Cairo, Egypt", color: "#db2777" },
-  { tag: "Nairobi", latitude: -1.2921, longitude: 36.8219, location: "Nairobi, Kenya", color: "#9333ea" },
-  { tag: "Cape Town", latitude: -33.9249, longitude: 18.4241, location: "Cape Town, South Africa", color: "#6d28d9" },
-  { tag: "Moscow", latitude: 55.7558, longitude: 37.6173, location: "Moscow, Russia", color: "#4f46e5" },
-  { tag: "Dubai", latitude: 25.2048, longitude: 55.2708, location: "Dubai, United Arab Emirates", color: "#2563eb" },
-  { tag: "Mumbai", latitude: 19.076, longitude: 72.8777, location: "Mumbai, India", color: "#0891b2" },
-  { tag: "Delhi", latitude: 28.6139, longitude: 77.209, location: "Delhi, India", color: "#0f766e" },
-  { tag: "Bangkok", latitude: 13.7563, longitude: 100.5018, location: "Bangkok, Thailand", color: "#16a34a" },
-  { tag: "Singapore", latitude: 1.3521, longitude: 103.8198, location: "Singapore", color: "#65a30d" },
-  { tag: "Beijing", latitude: 39.9042, longitude: 116.4074, location: "Beijing, China", color: "#ca8a04" },
-  { tag: "Seoul", latitude: 37.5665, longitude: 126.978, location: "Seoul, South Korea", color: "#d97706" },
-  { tag: "Tokyo", latitude: 35.6762, longitude: 139.6503, location: "Tokyo, Japan", color: "#ea580c" },
-  { tag: "Manila", latitude: 14.5995, longitude: 120.9842, location: "Manila, Philippines", color: "#dc2626" },
-  { tag: "Jakarta", latitude: -6.2088, longitude: 106.8456, location: "Jakarta, Indonesia", color: "#e11d48" },
-  { tag: "Perth", latitude: -31.9505, longitude: 115.8605, location: "Perth, Australia", color: "#db2777" },
-  { tag: "Sydney", latitude: -33.8688, longitude: 151.2093, location: "Sydney, Australia", color: "#9333ea" },
-  { tag: "Melbourne", latitude: -37.8136, longitude: 144.9631, location: "Melbourne, Australia", color: "#6d28d9" },
-  { tag: "Auckland", latitude: -36.8485, longitude: 174.7633, location: "Auckland, New Zealand", color: "#4f46e5" },
-];
-
-const LOCATION_BY_TAG = LOCATION_FIXTURE.reduce((locations, location) => ({ ...locations, [location.tag]: location }), {});
+import { LOCATION_FIXTURE, LOCATION_BY_TAG, INTENSIVE_TEST_SEQUENCE } from "@/plugins/geolocationSampleData";
 
 // Secondary cities appear only after the street-detail zoom level is reached.
 const DETAIL_LOCATION_FIXTURE = [
@@ -127,21 +92,6 @@ const TEST_MAP_STYLE = {
   },
   layers: [{ id: "openstreetmap", type: "raster", source: "openstreetmap" }],
 };
-
-const INTENSIVE_TEST_SEQUENCE = [
-  ["San Francisco", 0.98], ["Tokyo", 0.94], ["Paris", 0.89], [null, null], ["Sydney", 0.86],
-  ["New York", 0.83], ["Singapore", 0.79], ["Cape Town", 0.76], ["London", 0.71], [null, null],
-  ["Mexico City", 0.68], ["Mumbai", 0.64], ["Rome", 0.61], ["Auckland", 0.58], ["Cairo", 0.55],
-  ["Seoul", 0.52], ["Buenos Aires", 0.49], [null, null], ["Dubai", 0.46], ["Vancouver", 0.43],
-  ["Bangkok", 0.4], ["Reykjavik", 0.37], ["Nairobi", 0.34], ["Melbourne", 0.31], [null, null],
-  ["Beijing", 0.28], ["Sao Paulo", 0.25], ["Anchorage", 0.22], ["Jakarta", 0.19], ["Manila", 0.16],
-  ["Perth", 0.13], ["Honolulu", 0.1], ["Delhi", 0.92], [null, null], ["Moscow", 0.88],
-  ["San Francisco", 0.85], ["Tokyo", 0.81], ["Paris", 0.78], ["Sydney", 0.75], ["New York", 0.72],
-  ["Singapore", 0.69], [null, null], ["Cape Town", 0.66], ["London", 0.63], ["Mexico City", 0.6],
-  ["Mumbai", 0.57], ["Rome", 0.54], ["Auckland", 0.51], [null, null], ["Cairo", 0.48],
-  ["Seoul", 0.45], ["Buenos Aires", 0.42], ["Dubai", 0.39], ["Vancouver", 0.36], ["Bangkok", 0.33],
-  ["Reykjavik", 0.3], ["Nairobi", 0.27], ["Melbourne", 0.24], ["Beijing", 0.21], ["Moscow", 0.18],
-];
 
 const SHOT_TEMPLATE = INTENSIVE_TEST_SEQUENCE.map(([tag, confidence], index) => ({
   start: index / INTENSIVE_TEST_SEQUENCE.length,
