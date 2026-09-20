@@ -15,6 +15,9 @@
                 <VideoPlayer @resize="onVideoResize" />
               </v-col>
             </v-row>
+            <v-row class="mb-2 px-4">
+              <TimeSelector width="100%" @resize="onVideoResize" />
+            </v-row>
           </v-card>
         </v-col>
 
@@ -96,6 +99,17 @@
       <v-row class="ma-2">
         <v-col>
           <v-card class="d-flex flex-column flex-nowrap" max-width="100%" elevation="2" scrollable="False">
+            <v-card-title> Timelines </v-card-title>
+            <v-flex grow class="mb-2 px-4">
+              <Timeline ref="timeline" width="100%"> </Timeline>
+            </v-flex>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <v-row class="ma-2">
+        <v-col>
+          <v-card class="d-flex flex-column flex-nowrap" max-width="100%" elevation="2" scrollable="False">
             <v-card-title>
               Geolocation timeline
               <v-chip class="ml-3" small outlined color="deep-purple">Mock data</v-chip>
@@ -114,6 +128,8 @@
 <script>
 import VideoPlayer from "@/components/VideoPlayer.vue";
 import TranscriptOverview from "@/components/TranscriptOverview.vue";
+import Timeline from "@/components/Timeline.vue";
+import TimeSelector from "@/components/TimeSelector.vue";
 import CurrentEntitiesOverView from "@/components/CurrentEntitiesOverView.vue";
 import ModalTimelineSegmentAnnotate from "@/components/ModalTimelineSegmentAnnotate.vue";
 import ShotsOverview from "@/components/ShotsOverview.vue";
@@ -425,6 +441,8 @@ export default {
   components: {
     VideoPlayer,
     TranscriptOverview,
+    Timeline,
+    TimeSelector,
     CurrentEntitiesOverView,
     ModalTimelineSegmentAnnotate,
     ShotsOverview,
