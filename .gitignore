@@ -164,3 +164,4 @@ cython_debug/
 #.idea/
 
 tibava.code-workspace
+local_temp/

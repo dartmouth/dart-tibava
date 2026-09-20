@@ -13,3 +13,6 @@ dependencies = [
 
 [tool.uv.workspace]
 members = ["packages/*", "analyser", "backend", "inference_ray"]
+
+[tool.uv]
+constraint-dependencies = ["anyio>=4.14.2"]
