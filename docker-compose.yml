@@ -209,17 +209,16 @@ services:
       - celery
 
   frontend:
-    image: dart-tibava-frontend
+    image: frontend
     ports:
       - 8080:8080
       - 80:80
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
-      args:
-        API_LOCATION: http://localhost:8000
-        THUMBNAIL_LOCATION: http://localhost/thumbnails
+      context: ./frontend
     volumes:
+      - type: bind
+        source: ./frontend/
+        target: /app/frontend
       - type: bind
         source: ./data/predictions/
         target: /thumbnails
