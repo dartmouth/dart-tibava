@@ -1027,6 +1027,32 @@ export default {
                 },
               ],
             },
+            {
+              name: this.$t("modal.plugin.geolocation.plugin_name"),
+              description: this.$t("modal.plugin.geolocation.plugin_description"),
+              icon: "mdi-map-marker-radius",
+              plugin: "geolocation",
+              id: 409,
+              parameters: [
+                {
+                  field: "text_field",
+                  name: "timeline",
+                  value: this.$t("modal.plugin.geolocation.timeline_name"),
+                  text: this.$t("modal.plugin.timeline_name"),
+                },
+              ],
+              optional_parameters: [
+                {
+                  field: "number_field",
+                  name: "year",
+                  value: "",
+                  min: 1000,
+                  max: 9999,
+                  text: this.$t("modal.plugin.geolocation.year"),
+                  hint: this.$t("modal.plugin.geolocation.year_hint"),
+                },
+              ],
+            },
           ],
         },
         {
@@ -1778,6 +1804,11 @@ export default {
   },
   methods: {
     async runPlugin(plugin, parameters, optional_parameters) {
+      optional_parameters = optional_parameters.filter(
+        (p) =>
+          "file" in p ||
+          !(p.value === "" || p.value === null || p.value === undefined)
+      );
       parameters = parameters.concat(optional_parameters);
       parameters = parameters.map((e) => {
         if ("file" in e) {

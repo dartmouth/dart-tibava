@@ -167,6 +167,9 @@
       "scalar_timeline_hint": "*The scalar values of the selected timelines will be aggregated",
       "fps": "Frames per Second (FPS)",
       "normalize": "Normalize Results?",
+      "number_field": {
+        "invalid": "Please enter a valid number"
+      },
       "aggregation": {
         "plugin_name": "Aggregate Timelines",
         "plugin_description": "This plugin allows you to combine information from multiple timelines with logical operators. In this way, more complex patterns can be revealed. For example, the <em>logical and</em> can be used to detect when two concepts or persons are visible simultaneously. <br><br><b>Tip:</b> You can perform the plugin multiple times to create more complex patterns. The following example performs three aggregations to detect when a <em>Concept A</em> is simultaneously visible with <em>Concept B</em> or <em>Concept C</em>: <br><br>AGG1 = (Concept A) Logical And (Concept B) <br> AGG2 = (Concept A) Logical And (Concept C) <br> AGG3 = (AGG1) Logical Or (AGG2)",
@@ -359,6 +362,13 @@
       "facesize": {
         "plugin_name": "Face Size Analysis",
         "timeline_name": "Face Size"
+      },
+      "geolocation": {
+        "plugin_name": "Geolocation",
+        "plugin_description": "This plugin identifies geographic locations depicted in the video.",
+        "timeline_name": "Geolocation",
+        "year": "Year",
+        "year_hint": "Optional 4-digit year to associate with this analysis"
       },
       "place_clustering": {
         "plugin_name": "Place Clustering",

@@ -65,6 +65,10 @@
         <v-checkbox v-model="parameter.value" :label="parameter.text" :hint="parameter.hint" hide-details>
         </v-checkbox>
       </div>
+
+      <v-text-field v-model.number="parameter.value" :label="parameter.text" :hint="parameter.hint" type="number"
+        persistent-hint :rules="[numberFieldRule(parameter)]" v-if="parameter.field == 'number_field'"
+        :key="parameter.name"></v-text-field>
     </template>
   </div>
 </template>
@@ -78,6 +82,23 @@ import { usePluginRunResultStore } from "../store/plugin_run_result";
 export default {
   props: ["parameters", "videoIds"],
   methods: {
+    numberFieldRule(parameter) {
+      return (value) => {
+        if (value === "" || value === null || value === undefined) {
+          return true;
+        }
+        const num = Number(value);
+        if (
+          Number.isNaN(num) ||
+          !Number.isInteger(num) ||
+          (parameter.min !== undefined && num < parameter.min) ||
+          (parameter.max !== undefined && num > parameter.max)
+        ) {
+          return this.$t("modal.plugin.number_field.invalid");
+        }
+        return true;
+      };
+    },
     groupTimelines(timelines) {
       let timelinesGroups = {};
       for (const timeline of timelines) {
