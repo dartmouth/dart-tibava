@@ -1,0 +1,10 @@
+# Dev-only image for docker-compose.override.yml: installs dependencies at
+# build time, then expects frontend/ to be bind-mounted over /app/frontend at
+# runtime so `vue-cli-service serve`'s webpack-dev-server can hot reload on
+# source changes without a rebuild. Not used by the production build
+# (Dockerfile.frontend).
+FROM node:16-bullseye
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json* /app/frontend/
+RUN npm install
+CMD ["npm", "run", "serve", "--", "--host", "0.0.0.0"]

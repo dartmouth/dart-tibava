@@ -166,3 +166,6 @@ cython_debug/
 tibava.code-workspace
 local_temp/
 .claude/
+
+# local-only dev override for hot-reloading the frontend container
+docker-compose.override.yml
