@@ -81,14 +81,25 @@ function resolveShotBoundaries({ videoId, duration }) {
   ]);
 }
 
-// Generates a fresh random geolocation sequence: a random subset of locations,
-// laid out over the video's real shot boundaries (or evenly spaced ones), with
-// 1-3 candidate locations per shot, each at a different confidence level.
+// Generates a random geolocation sequence: a random subset of locations, laid
+// out over the video's real shot boundaries (or evenly spaced ones), with 1-3
+// candidate locations per shot, each at a different confidence level.
+//
+// Memoized per videoId so the standalone Geolocation.vue map and the native
+// timeline built by buildGeolocationTimelineData() call this independently
+// but end up rendering the exact same candidates/confidences instead of two
+// unrelated random draws.
+const sequenceCache = new Map();
+
 export function generateGeolocationSequence({ videoId, duration }) {
+  if (sequenceCache.has(videoId)) {
+    return sequenceCache.get(videoId);
+  }
+
   const boundaries = resolveShotBoundaries({ videoId, duration });
   const pool = pickRandomLocations(randomInt(4, 8));
 
-  return boundaries.map(([start, end]) => {
+  const sequence = boundaries.map(([start, end]) => {
     const locationCount = Math.min(randomInt(1, 3), pool.length);
     const locations = shuffle(pool)
       .slice(0, locationCount)
@@ -97,6 +108,9 @@ export function generateGeolocationSequence({ videoId, duration }) {
 
     return { start, end, locations };
   });
+
+  sequenceCache.set(videoId, sequence);
+  return sequence;
 }
 
 function slugify(tag) {
