@@ -2,6 +2,9 @@
 // Shared between the standalone Geolocation.vue demo and the native timeline
 // integration in VideoAnalysis.vue, so both stay in sync until the demo is removed.
 
+import { useTimelineStore } from "@/store/timeline";
+import { useTimelineSegmentStore } from "@/store/timeline_segment";
+
 // Deliberately broad fixture for exercising marker density, map panning, and timeline rendering.
 export const LOCATION_FIXTURE = [
   { tag: "Anchorage", latitude: 61.2181, longitude: -149.9003, location: "Anchorage, United States", color: "#4f46e5" },
@@ -38,20 +41,63 @@ export const LOCATION_FIXTURE = [
 
 export const LOCATION_BY_TAG = LOCATION_FIXTURE.reduce((locations, location) => ({ ...locations, [location.tag]: location }), {});
 
-export const INTENSIVE_TEST_SEQUENCE = [
-  ["San Francisco", 0.98], ["Tokyo", 0.94], ["Paris", 0.89], [null, null], ["Sydney", 0.86],
-  ["New York", 0.83], ["Singapore", 0.79], ["Cape Town", 0.76], ["London", 0.71], [null, null],
-  ["Mexico City", 0.68], ["Mumbai", 0.64], ["Rome", 0.61], ["Auckland", 0.58], ["Cairo", 0.55],
-  ["Seoul", 0.52], ["Buenos Aires", 0.49], [null, null], ["Dubai", 0.46], ["Vancouver", 0.43],
-  ["Bangkok", 0.4], ["Reykjavik", 0.37], ["Nairobi", 0.34], ["Melbourne", 0.31], [null, null],
-  ["Beijing", 0.28], ["Sao Paulo", 0.25], ["Anchorage", 0.22], ["Jakarta", 0.19], ["Manila", 0.16],
-  ["Perth", 0.13], ["Honolulu", 0.1], ["Delhi", 0.92], [null, null], ["Moscow", 0.88],
-  ["San Francisco", 0.85], ["Tokyo", 0.81], ["Paris", 0.78], ["Sydney", 0.75], ["New York", 0.72],
-  ["Singapore", 0.69], [null, null], ["Cape Town", 0.66], ["London", 0.63], ["Mexico City", 0.6],
-  ["Mumbai", 0.57], ["Rome", 0.54], ["Auckland", 0.51], [null, null], ["Cairo", 0.48],
-  ["Seoul", 0.45], ["Buenos Aires", 0.42], ["Dubai", 0.39], ["Vancouver", 0.36], ["Bangkok", 0.33],
-  ["Reykjavik", 0.3], ["Nairobi", 0.27], ["Melbourne", 0.24], ["Beijing", 0.21], ["Moscow", 0.18],
-];
+const FALLBACK_SEGMENT_COUNT = 10;
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function shuffle(array) {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function pickRandomLocations(count) {
+  return shuffle(LOCATION_FIXTURE).slice(0, count);
+}
+
+// Mirrors the app's existing "first ANNOTATION timeline is the shots timeline"
+// convention (see store/shot.js) so the sample sequence lines up with a real
+// shot-detection run when one exists for the video, and falls back to evenly
+// spaced segments otherwise.
+function resolveShotBoundaries({ videoId, duration }) {
+  const safeDuration = duration || 0;
+  const shotsTimeline = useTimelineStore()
+    .forVideo(videoId)
+    .find((timeline) => timeline.type === "ANNOTATION");
+  const shotSegments = shotsTimeline ? useTimelineSegmentStore().forTimeline(shotsTimeline.id) : [];
+
+  if (shotSegments.length > 1) {
+    return shotSegments.map((segment) => [segment.start, segment.end]);
+  }
+
+  return Array.from({ length: FALLBACK_SEGMENT_COUNT }, (_, index) => [
+    (index / FALLBACK_SEGMENT_COUNT) * safeDuration,
+    ((index + 1) / FALLBACK_SEGMENT_COUNT) * safeDuration,
+  ]);
+}
+
+// Generates a fresh random geolocation sequence: a random subset of locations,
+// laid out over the video's real shot boundaries (or evenly spaced ones), with
+// 1-3 candidate locations per shot, each at a different confidence level.
+export function generateGeolocationSequence({ videoId, duration }) {
+  const boundaries = resolveShotBoundaries({ videoId, duration });
+  const pool = pickRandomLocations(randomInt(4, 8));
+
+  return boundaries.map(([start, end]) => {
+    const locationCount = Math.min(randomInt(1, 3), pool.length);
+    const locations = shuffle(pool)
+      .slice(0, locationCount)
+      .map((location) => ({ tag: location.tag, confidence: 0.3 + Math.random() * 0.69 }))
+      .sort((a, b) => b.confidence - a.confidence);
+
+    return { start, end, locations };
+  });
+}
 
 function slugify(tag) {
   return tag.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -86,15 +132,15 @@ export function buildGeolocationTimelineData({ videoId, duration, baseOrder }) {
 
   const annotationCategories = [{ id: categoryId, name: "Geolocation" }];
 
+  const sequence = generateGeolocationSequence({ videoId, duration: safeDuration });
+
   const timelineSegments = [];
   const annotations = [];
   const timelineSegmentAnnotations = [];
   const timeSamples = [];
-  const uniqueTags = [...new Set(INTENSIVE_TEST_SEQUENCE.map(([tag]) => tag).filter(Boolean))];
+  const uniqueTags = [...new Set(sequence.flatMap(({ locations }) => locations.map(({ tag }) => tag)))];
 
-  INTENSIVE_TEST_SEQUENCE.forEach(([tag, confidence], index) => {
-    const start = (index / INTENSIVE_TEST_SEQUENCE.length) * safeDuration;
-    const end = ((index + 1) / INTENSIVE_TEST_SEQUENCE.length) * safeDuration;
+  sequence.forEach(({ start, end, locations }, index) => {
     timeSamples.push((start + end) / 2);
 
     const segmentId = `geolocation-segment-${videoId}-${index}`;
@@ -106,8 +152,8 @@ export function buildGeolocationTimelineData({ videoId, duration, baseOrder }) {
       color: null,
     });
 
-    if (tag) {
-      const annotationId = `geolocation-annotation-${videoId}-${index}`;
+    locations.forEach(({ tag, confidence }, locationIndex) => {
+      const annotationId = `geolocation-annotation-${videoId}-${index}-${locationIndex}`;
       annotations.push({
         id: annotationId,
         name: tag,
@@ -115,11 +161,11 @@ export function buildGeolocationTimelineData({ videoId, duration, baseOrder }) {
         color: blendTowardWhite(LOCATION_BY_TAG[tag].color, 1 - confidence),
       });
       timelineSegmentAnnotations.push({
-        id: `geolocation-segment-annotation-${videoId}-${index}`,
+        id: `geolocation-segment-annotation-${videoId}-${index}-${locationIndex}`,
         timeline_segment_id: segmentId,
         annotation_id: annotationId,
       });
-    }
+    });
   });
 
   const timelines = [
@@ -155,8 +201,8 @@ export function buildGeolocationTimelineData({ videoId, duration, baseOrder }) {
       id: resultId,
       data: {
         time: timeSamples,
-        y: INTENSIVE_TEST_SEQUENCE.map(([sampleTag, confidence]) => (sampleTag === tag ? confidence : 0)),
-        delta_time: safeDuration / INTENSIVE_TEST_SEQUENCE.length,
+        y: sequence.map(({ locations }) => locations.find((location) => location.tag === tag)?.confidence ?? 0),
+        delta_time: safeDuration / sequence.length,
       },
     });
   });

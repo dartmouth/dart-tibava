@@ -58,7 +58,7 @@ import { mapStores } from "pinia";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { usePlayerStore } from "@/store/player";
-import { LOCATION_FIXTURE, LOCATION_BY_TAG, INTENSIVE_TEST_SEQUENCE } from "@/plugins/geolocationSampleData";
+import { LOCATION_FIXTURE, LOCATION_BY_TAG, generateGeolocationSequence } from "@/plugins/geolocationSampleData";
 
 // Secondary cities appear only after the street-detail zoom level is reached.
 const DETAIL_LOCATION_FIXTURE = [
@@ -93,13 +93,6 @@ const TEST_MAP_STYLE = {
   layers: [{ id: "openstreetmap", type: "raster", source: "openstreetmap" }],
 };
 
-const SHOT_TEMPLATE = INTENSIVE_TEST_SEQUENCE.map(([tag, confidence], index) => ({
-  start: index / INTENSIVE_TEST_SEQUENCE.length,
-  end: (index + 1) / INTENSIVE_TEST_SEQUENCE.length,
-  tag,
-  confidence,
-}));
-
 export default {
   data() {
     return {
@@ -128,19 +121,31 @@ export default {
     },
   },
   computed: {
+    videoId() {
+      return this.playerStore.videoId;
+    },
     duration() {
       return this.playerStore.videoDuration || 0;
     },
     currentTime() {
       return Math.min(Math.max(this.playerStore.currentTime || 0, 0), this.duration);
     },
+    shotTemplate() {
+      return generateGeolocationSequence({ videoId: this.videoId, duration: this.duration }).map((segment) => {
+        const top = segment.locations[0] || null;
+        return {
+          start: segment.start,
+          end: segment.end,
+          tag: top?.tag ?? null,
+          confidence: top?.confidence ?? null,
+        };
+      });
+    },
     segments() {
-      return SHOT_TEMPLATE.map((item, index) => ({
+      return this.shotTemplate.map((item, index) => ({
         ...item,
         ...(item.tag ? LOCATION_BY_TAG[item.tag] : {}),
         id: `mock-geo-${index}`,
-        start: item.start * this.duration,
-        end: item.end * this.duration,
       }));
     },
     currentSegment() {
