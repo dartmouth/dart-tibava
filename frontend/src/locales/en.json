@@ -367,6 +367,8 @@
         "plugin_name": "Geolocation",
         "plugin_description": "This plugin identifies geographic locations depicted in the video.",
         "timeline_name": "Geolocation",
+        "confidence_threshold": "Confidence Threshold",
+        "confidence_threshold_hint": "Minimum confidence score for a detected location to be included",
         "year": "Year",
         "year_hint": "Optional 4-digit year to associate with this analysis"
       },

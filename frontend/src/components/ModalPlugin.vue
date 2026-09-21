@@ -1040,8 +1040,33 @@ export default {
                   value: this.$t("modal.plugin.geolocation.timeline_name"),
                   text: this.$t("modal.plugin.timeline_name"),
                 },
+                {
+                  field: "select_timeline",
+                  name: "shot_timeline_id",
+                  text: this.$t("modal.plugin.shot_timeline_name"),
+                  hint: this.$t("modal.plugin.shot_timeline_hint"),
+                },
               ],
               optional_parameters: [
+                {
+                  field: "slider",
+                  min: 1,
+                  max: 10,
+                  value: 2,
+                  step: 1,
+                  name: "fps",
+                  text: this.$t("modal.plugin.fps"),
+                },
+                {
+                  field: "slider",
+                  min: 0,
+                  max: 1,
+                  value: 0.3,
+                  step: 0.05,
+                  name: "confidence_threshold",
+                  text: this.$t("modal.plugin.geolocation.confidence_threshold"),
+                  hint: this.$t("modal.plugin.geolocation.confidence_threshold_hint"),
+                },
                 {
                   field: "number_field",
                   name: "year",
