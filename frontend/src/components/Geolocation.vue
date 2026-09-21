@@ -1,5 +1,5 @@
 <template>
-  <section v-if="variant === 'map'" class="geo-annotation pa-4">
+  <section class="geo-annotation pa-4">
     <div class="d-flex align-start justify-space-between mb-3">
       <div>
         <div class="text-subtitle-1 font-weight-bold">Map</div>
@@ -15,40 +15,6 @@
       <div class="map-source">OpenStreetMap road data · test use</div>
       <div class="map-confidence">{{ currentSegment.tag ? `${currentSegment.tag} ·
         ${confidenceLabel(currentSegment.confidence)} confidence` : "No prediction" }}</div>
-    </div>
-  </section>
-
-  <section v-else class="geo-timeline px-4 pb-4">
-    <div class="d-flex align-center justify-space-between mb-2">
-      <div>
-        <div class="text-subtitle-1 font-weight-bold">Geolocation timeline</div>
-        <div class="text-caption grey--text text--darken-1">One mock timeline · each block is a shot · colour =
-          place/tag · opacity = confidence</div>
-      </div>
-      <div class="geo-legend">
-        <span v-for="scene in sceneLegend" :key="scene.tag"><i :style="{ backgroundColor: scene.color }"></i>{{
-          scene.tag }}</span>
-      </div>
-    </div>
-
-    <div ref="timeline" class="geo-timeline__track" role="slider" aria-label="Mock geolocation timeline"
-      @click="seekFromTimeline">
-      <button v-for="segment in segments" :key="segment.id" class="geo-timeline__segment"
-        :class="{ 'geo-timeline__segment--current': currentSegment.id === segment.id, 'geo-timeline__segment--unlabelled': !segment.tag }"
-        :style="segmentStyle(segment)" type="button" :aria-label="segmentAriaLabel(segment)"
-        @click.stop="jumpToSegment(segment)">
-      </button>
-      <div class="geo-timeline__playhead" :style="{ left: `${playheadPercent}%` }">
-        <span></span>
-      </div>
-    </div>
-    <div class="geo-timeline__ticks">
-      <span v-for="tick in timelineTicks" :key="tick">{{ timecode(tick) }}</span>
-    </div>
-    <div class="text-caption mt-2">
-      <template v-if="currentSegment.tag">Selected: <strong>{{ currentSegment.tag }}</strong> · {{
-        currentSegment.location }} · {{ confidenceLabel(currentSegment.confidence) }} confidence</template>
-      <template v-else>Selected: <strong>Unlabelled shot</strong> · no location prediction</template>
     </div>
   </section>
 </template>
@@ -100,15 +66,8 @@ export default {
       mapReady: false,
     };
   },
-  props: {
-    variant: {
-      type: String,
-      default: "map",
-      validator: (value) => ["map", "timeline"].includes(value),
-    },
-  },
   mounted() {
-    if (this.variant === "map") this.$nextTick(this.initializeMap);
+    this.$nextTick(this.initializeMap);
   },
   beforeDestroy() {
     if (this.map) this.map.remove();
@@ -151,23 +110,11 @@ export default {
     currentSegment() {
       return this.segments.find((segment) => this.currentTime >= segment.start && this.currentTime < segment.end) || this.segments[this.segments.length - 1];
     },
-    sceneLegend() {
-      const seen = new Set();
-      return this.segments
-        .filter((segment) => segment.tag && !seen.has(segment.tag) && seen.add(segment.tag))
-        .map((segment) => ({ tag: segment.tag, color: segment.color }));
-    },
     mapLocations() {
       return LOCATION_FIXTURE;
     },
     mapAriaLabel() {
       return this.currentSegment.tag ? `Mock map annotation at ${this.currentSegment.location}` : "Mock map annotation with no location prediction for the selected shot";
-    },
-    playheadPercent() {
-      return (this.currentTime / this.duration) * 100;
-    },
-    timelineTicks() {
-      return [0, this.duration * 0.25, this.duration * 0.5, this.duration * 0.75, this.duration];
     },
     ...mapStores(usePlayerStore),
   },
@@ -270,21 +217,6 @@ export default {
         .addTo(this.map);
       this.map.flyTo({ center: coordinates, zoom: Math.max(this.map.getZoom(), 5), essential: true });
     },
-    colorFor(tag) {
-      return tag ? (LOCATION_BY_TAG[tag]?.color ?? "transparent") : "transparent";
-    },
-    segmentStyle(segment) {
-      const isLabelled = Boolean(segment.tag);
-      return {
-        left: `${(segment.start / this.duration) * 100}%`,
-        width: `${((segment.end - segment.start) / this.duration) * 100}%`,
-        backgroundColor: isLabelled ? this.colorFor(segment.tag) : "transparent",
-        opacity: isLabelled ? 0.08 + segment.confidence * 0.92 : 1,
-      };
-    },
-    segmentWidth(segment) {
-      return ((segment.end - segment.start) / this.duration) * 100;
-    },
     confidenceLabel(confidence) {
       return `${Math.round(confidence * 100)}%`;
     },
@@ -292,22 +224,6 @@ export default {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = Math.floor(seconds % 60);
       return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
-    },
-    segmentAriaLabel(segment) {
-      const interval = `${this.timecode(segment.start)} to ${this.timecode(segment.end)}`;
-      return segment.tag ? `${segment.tag}, ${this.confidenceLabel(segment.confidence)} confidence, ${interval}` : `Unlabelled shot, ${interval}`;
-    },
-    setTime(time) {
-      const safeTime = Math.min(Math.max(time, 0), this.duration);
-      this.playerStore.setCurrentTime(safeTime);
-      this.playerStore.setTargetTime(safeTime);
-    },
-    jumpToSegment(segment) {
-      this.setTime((segment.start + segment.end) / 2);
-    },
-    seekFromTimeline(event) {
-      const bounds = this.$refs.timeline.getBoundingClientRect();
-      this.setTime(((event.clientX - bounds.left) / bounds.width) * this.duration);
     },
   },
 };
@@ -362,95 +278,4 @@ export default {
   right: 10px;
   top: 10px;
 }
-
-.geo-timeline {
-  width: 100%;
-}
-
-.geo-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 12px;
-}
-
-.geo-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.geo-legend i {
-  display: inline-block;
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-}
-
-.geo-timeline__track {
-  position: relative;
-  height: 52px;
-  overflow: hidden;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #e2e8f0;
-  cursor: crosshair;
-}
-
-.geo-timeline__segment {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border: 0;
-  border-right: 2px solid rgba(255, 255, 255, 0.85);
-  color: white;
-  font-size: 12px;
-  font-weight: 700;
-  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.35);
-  cursor: pointer;
-  transition: filter .16s ease, box-shadow .16s ease;
-}
-
-.geo-timeline__segment:hover {
-  filter: brightness(1.06);
-}
-
-.geo-timeline__segment--current {
-  z-index: 1;
-  box-shadow: inset 0 0 0 3px #0f172a;
-}
-
-.geo-timeline__playhead {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: #0f172a;
-  pointer-events: none;
-}
-
-.geo-timeline__playhead span {
-  position: absolute;
-  top: 0;
-  left: -5px;
-  width: 12px;
-  height: 12px;
-  background: #0f172a;
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
-}
-
-.geo-timeline__ticks {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 4px;
-  color: #64748b;
-  font-family: monospace;
-  font-size: 11px;
-}
-
 </style>

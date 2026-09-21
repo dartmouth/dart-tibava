@@ -26,6 +26,10 @@ data/
 .DS_Store
 Thumbs.db
 
+# --- Node (frontend is built inside the image; a local node_modules can
+# contain broken symlinks over a WSL/Windows mount that break the build) ---
+**/node_modules/
+
 # --- Optional: Documentation & Tests ---
 # If you don't need tests running *inside* the final production image
 tests/

@@ -75,7 +75,7 @@
               </v-tab-item>
 
               <v-tab-item style="height: 100%">
-                <Geolocation variant="map" />
+                <Geolocation />
               </v-tab-item>
 
               <v-tab-item style="height: 100%">
@@ -107,19 +107,6 @@
         </v-col>
       </v-row>
 
-      <v-row class="ma-2">
-        <v-col>
-          <v-card class="d-flex flex-column flex-nowrap" max-width="100%" elevation="2" scrollable="False">
-            <v-card-title>
-              Geolocation timeline
-              <v-chip class="ml-3" small outlined color="deep-purple">Mock data</v-chip>
-            </v-card-title>
-            <v-flex grow class="mb-2 px-4">
-              <Geolocation variant="timeline" />
-            </v-flex>
-          </v-card>
-        </v-col>
-      </v-row>
       <ModalTimelineSegmentAnnotate :show.sync="annotationDialog.show" />
     </v-container>
   </v-main>
