@@ -122,9 +122,15 @@ function blendTowardWhite(hex, amount) {
 }
 
 // Shapes the sample geolocation sequence into the same Timeline/TimelineSegment/
-// Annotation/PluginRunResult objects a real geolocation plugin run would produce,
-// following the shot_angle plugin's parent (ANNOTATION) + per-category children
-// (PLUGIN_RESULT/SCALAR_COLOR) structure.
+// Annotation objects a real geolocation plugin run would produce: one parent
+// ANNOTATION timeline (all candidate locations per shot), plus one child
+// ANNOTATION timeline per location (that location's confidence per shot, or
+// no annotation on shots it wasn't predicted for). Children are ANNOTATION
+// timelines rather than PLUGIN_RESULT rows so they reuse the parent's own
+// rendering/hover code unmodified: real per-shot segment bounds (no sampling
+// approximation), Annotation.color for the same base-color-fades-to-white
+// look, and Annotation.name (a confidence percentage) for both the baked-in
+// segment label and the existing hover tooltip.
 export function buildGeolocationTimelineData({ videoId, duration, baseOrder }) {
   const safeDuration = duration || 0;
   const primaryTimelineId = `geolocation-timeline-${videoId}`;
@@ -137,12 +143,9 @@ export function buildGeolocationTimelineData({ videoId, duration, baseOrder }) {
   const timelineSegments = [];
   const annotations = [];
   const timelineSegmentAnnotations = [];
-  const timeSamples = [];
   const uniqueTags = [...new Set(sequence.flatMap(({ locations }) => locations.map(({ tag }) => tag)))];
 
   sequence.forEach(({ start, end, locations }, index) => {
-    timeSamples.push((start + end) / 2);
-
     const segmentId = `geolocation-segment-${videoId}-${index}`;
     timelineSegments.push({
       id: segmentId,
@@ -183,27 +186,43 @@ export function buildGeolocationTimelineData({ videoId, duration, baseOrder }) {
 
   uniqueTags.forEach((tag, i) => {
     const slug = slugify(tag);
-    const resultId = `geolocation-result-${slug}-${videoId}`;
+    const childTimelineId = `geolocation-child-${slug}-${videoId}`;
 
     timelines.push({
-      id: `geolocation-child-${slug}-${videoId}`,
+      id: childTimelineId,
       video_id: videoId,
       name: tag,
-      type: "PLUGIN_RESULT",
-      visualization: "SCALAR_COLOR",
+      type: "ANNOTATION",
       order: baseOrder + i + 1,
       parent_id: primaryTimelineId,
       collapse: false,
-      plugin_run_result_id: resultId,
     });
 
-    pluginRunResults.push({
-      id: resultId,
-      data: {
-        time: timeSamples,
-        y: sequence.map(({ locations }) => locations.find((location) => location.tag === tag)?.confidence ?? 0),
-        delta_time: safeDuration / sequence.length,
-      },
+    sequence.forEach(({ start, end, locations }, index) => {
+      const segmentId = `geolocation-child-segment-${slug}-${videoId}-${index}`;
+      timelineSegments.push({
+        id: segmentId,
+        timeline_id: childTimelineId,
+        start,
+        end,
+        color: null,
+      });
+
+      const match = locations.find((location) => location.tag === tag);
+      if (!match) return;
+
+      const annotationId = `geolocation-child-annotation-${slug}-${videoId}-${index}`;
+      annotations.push({
+        id: annotationId,
+        name: `${Math.round(match.confidence * 100)}%`,
+        category_id: categoryId,
+        color: blendTowardWhite(LOCATION_BY_TAG[tag].color, 1 - match.confidence),
+      });
+      timelineSegmentAnnotations.push({
+        id: `geolocation-child-segment-annotation-${slug}-${videoId}-${index}`,
+        timeline_segment_id: segmentId,
+        annotation_id: annotationId,
+      });
     });
   });
 
