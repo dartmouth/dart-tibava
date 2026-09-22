@@ -65,6 +65,40 @@ Alternatively, use `serve` to enable a hot reloaded instance on `http://localhos
 ```sh
 sudo docker-compose exec frontend npm run serve
 ```
+
+### Geolocation LLM configuration
+The `geolocation` backend plugin calls an external LLM to guess where a shot was filmed, and needs two settings:
+* `GEOLOCATION_LLM_API_KEY` — API key for the external LLM.
+* `GEOLOCATION_LLM_API_URL` — endpoint to send requests to.
+
+Set them either in `backend/src/backend/.env` (picked up automatically) or under a `[geolocation]` section in `backend/src/backend/backend_config.toml`, the same way the analyser service's `[analyser]` section configures `grpc_host`/`grpc_port`:
+```toml
+[geolocation]
+api_url = "https://example.com/geolocate"
+api_key = "sk-..."
+```
+The request/response shape is still a placeholder pending the real provider being chosen, so point `GEOLOCATION_LLM_API_URL` at whatever mock or real endpoint is available for now. Without both settings, the plugin fails immediately with a clear error instead of running.
+
+### Testing LLM/API-based plugins without a real endpoint
+`backend/src/backend/backend/views/llm_test_echo.py` is a small dev-only endpoint, routed at `llm/test-echo/<plugin_name>/`, for smoke-testing a plugin's outbound API call without a real external service. It only responds when `DEBUG=true` (404s otherwise), so it's safe to leave in the codebase rather than delete after each use.
+
+To use it, point the plugin's API-URL setting at it and make sure `backend` is an allowed host, e.g. in `backend/src/backend/.env`:
+```
+DEBUG=true
+ALLOWED_HOSTS=localhost,backend
+GEOLOCATION_LLM_API_URL=http://backend:8000/llm/test-echo/geolocation/
+GEOLOCATION_LLM_API_KEY=test-key
+```
+`http://backend:8000` (not `localhost`) is required because these calls originate from the `celery` container, addressing `backend` by its docker-compose service name; without `ALLOWED_HOSTS` including `backend`, Django rejects the request with `DisallowedHost`.
+
+Watch what it receives with:
+```sh
+docker-compose logs -f backend celery
+```
+Each request is logged with any secret-looking headers (`Authorization`, or a name containing `key`/`token`/`secret`) masked, and any string over ~300 chars (e.g. a base64-encoded image) summarized as a length + `sha256` digest + short prefix instead of dumped in full — the hash makes it possible to tell identical vs. distinct payloads apart (e.g. to catch accidentally duplicated frames) without a raw, unreadable log line.
+
+It responds with a fixed JSON body from the `FIXTURES` dict in that file, keyed by `plugin_name` (a `"geolocation"` entry is included; unregistered plugin names get `[]`). To exercise a new plugin's response-parsing/DB-write code end-to-end rather than just its outbound request, add a fixture entry there shaped like what that plugin's client expects.
+
 > **Geolocation demo note:** This repository is a modified demo based on
 > [TIB AV-Analytics](https://github.com/TIBHannover/tibava). It adds a mock
 > geolocation map and shot timeline for UI demonstration only; no

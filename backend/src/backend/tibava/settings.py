@@ -217,6 +217,13 @@ DATA_OUTPUT_PATH = get_value(
 GRPC_HOST = get_value(config, "ANALYSER_GRPC_HOST", "analyser.grpc_host", "analyser")
 GRPC_PORT = int(get_value(config, "ANALYSER_GRPC_PORT", "analyser.grpc_port", 50051))
 
+GEOLOCATION_LLM_API_URL = get_value(
+    config, "GEOLOCATION_LLM_API_URL", "geolocation.api_url", None
+)
+GEOLOCATION_LLM_API_KEY = get_value(
+    config, "GEOLOCATION_LLM_API_KEY", "geolocation.api_key", None
+)
+
 ANNOTATION_MAX_LENGTH = int(
     get_value(config, "ANNOTATION_MAX_LENGTH", "annotation_max_length", 1000)
 )
