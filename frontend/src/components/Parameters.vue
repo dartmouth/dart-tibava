@@ -69,6 +69,9 @@
       <v-text-field v-model.number="parameter.value" :label="parameter.text" :hint="parameter.hint" type="number"
         persistent-hint :rules="[numberFieldRule(parameter)]" v-if="parameter.field == 'number_field'"
         :key="parameter.name"></v-text-field>
+
+      <v-textarea v-model="parameter.value" :label="parameter.text" :hint="parameter.hint" persistent-hint
+        auto-grow rows="4" v-if="parameter.field == 'textarea'" :key="parameter.name"></v-textarea>
     </template>
   </div>
 </template>

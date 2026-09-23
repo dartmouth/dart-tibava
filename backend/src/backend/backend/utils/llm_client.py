@@ -16,22 +16,25 @@ MAX_CANDIDATES = 3
 _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.MULTILINE)
 
 
-def build_geolocation_prompt(year: Optional[str] = None) -> str:
-    year_hint = ""
-    if year:
-        year_hint = f" This footage is from approximately the year {year}."
+DEFAULT_GEOLOCATION_PROMPT = (
+    "You are given one or more video frames from the same shot of a video."
+    " Identify the most likely real-world geographic location shown in"
+    ' these frames. Respond with a JSON array of up to 3 candidate'
+    ' locations, ranked from most to least likely, each an object with the'
+    ' keys "label" (a short human-readable place name), "lat" and "lon"'
+    ' (decimal degrees), and "confidence" (a number between 0 and 1). If no'
+    " reasonable guess can be made, respond with an empty JSON array."
+    " Respond with only the JSON array and no additional text."
+)
 
-    return (
-        "You are given one or more video frames from the same shot of a video."
-        " Identify the most likely real-world geographic location shown in"
-        f" these frames.{year_hint} Respond with a JSON array of up to 3"
-        ' candidate locations, ranked from most to least likely, each an'
-        ' object with the keys "label" (a short human-readable place name),'
-        ' "lat" and "lon" (decimal degrees), and "confidence" (a number'
-        " between 0 and 1). If no reasonable guess can be made, respond with"
-        " an empty JSON array. Respond with only the JSON array and no"
-        " additional text."
-    )
+
+def build_geolocation_prompt(
+    year: Optional[str] = None, prompt: Optional[str] = None
+) -> str:
+    base_prompt = prompt if prompt else DEFAULT_GEOLOCATION_PROMPT
+    if year:
+        return f"{base_prompt} This footage is from approximately the year {year}."
+    return base_prompt
 
 
 class GeolocationLLMError(Exception):

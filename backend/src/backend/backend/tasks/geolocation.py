@@ -39,6 +39,7 @@ class GeolocationParser(Parser):
             "fps": {"parser": float, "default": 2},
             "confidence_threshold": {"parser": float, "default": 0.3},
             "year": {"parser": str, "default": None},
+            "prompt": {"parser": str, "default": None},
         }
 
 
@@ -150,7 +151,7 @@ class Geolocation(Task):
         ]
         frames_by_shot = _extract_shot_frames(video_path, shots_with_timestamps)
 
-        prompt = build_geolocation_prompt(parameters.get("year"))
+        prompt = build_geolocation_prompt(parameters.get("year"), parameters.get("prompt"))
         client = GeolocationLLMClient(api_url=api_url, api_key=api_key)
 
         results_by_shot = {}

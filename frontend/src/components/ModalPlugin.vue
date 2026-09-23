@@ -96,14 +96,14 @@
                 <v-card
                   v-else
                   :key="selected.id"
-                  class="mx-auto overflow-y-auto"
-                  style="height: 100%"
+                  class="overflow-y-auto"
+                  style="width: 100%; height: 100%"
                   flat
                 >
                   <v-card-title class="mb-0">
                     {{ selected.name }}
                   </v-card-title>
-                  <v-card-text>
+                  <v-card-text class="px-0">
                     <div
                       style="padding-bottom: 2em"
                       v-html="selected.description"
@@ -1075,6 +1075,23 @@ export default {
                   max: 9999,
                   text: this.$t("modal.plugin.geolocation.year"),
                   hint: this.$t("modal.plugin.geolocation.year_hint"),
+                },
+                {
+                  // Keep this default in sync with DEFAULT_GEOLOCATION_PROMPT
+                  // in backend/src/backend/backend/utils/llm_client.py
+                  field: "textarea",
+                  name: "prompt",
+                  value:
+                    "You are given one or more video frames from the same shot of a video." +
+                    " Identify the most likely real-world geographic location shown in" +
+                    ' these frames. Respond with a JSON array of up to 3 candidate' +
+                    ' locations, ranked from most to least likely, each an object with the' +
+                    ' keys "label" (a short human-readable place name), "lat" and "lon"' +
+                    ' (decimal degrees), and "confidence" (a number between 0 and 1). If no' +
+                    " reasonable guess can be made, respond with an empty JSON array." +
+                    " Respond with only the JSON array and no additional text.",
+                  text: this.$t("modal.plugin.geolocation.prompt"),
+                  hint: this.$t("modal.plugin.geolocation.prompt_hint"),
                 },
               ],
             },

@@ -370,7 +370,9 @@
         "confidence_threshold": "Confidence Threshold",
         "confidence_threshold_hint": "Minimum confidence score for a detected location to be included",
         "year": "Year",
-        "year_hint": "Optional 4-digit year to associate with this analysis"
+        "year_hint": "Optional 4-digit year to associate with this analysis",
+        "prompt": "Prompt",
+        "prompt_hint": "Instructions sent to the LLM to identify the location; edit to customize how it responds"
       },
       "place_clustering": {
         "plugin_name": "Place Clustering",
