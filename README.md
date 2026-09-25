@@ -52,6 +52,7 @@
     sudo docker-compose exec frontend npm install
     sudo docker-compose exec frontend npm run build
     ```
+    > The `npm install`/`npm run build` lines apply if the frontend is built from `frontend/Dockerfile` (the npm-enabled nginx image). With the default root `docker-compose.yml` + `Dockerfile.frontend` (multi-stage) build, `npm install`/`npm run build` already run at image-build time and the resulting container has no npm, so these two lines will fail with `exec: "npm": executable file not found in $PATH` — skip them in that case.
 
 5. Go to the frontend instance at `http://localhost/`.
 
@@ -65,6 +66,10 @@ Alternatively, use `serve` to enable a hot reloaded instance on `http://localhos
 ```sh
 sudo docker-compose exec frontend npm run serve
 ```
+> These `npm run build`/`npm run serve` exec commands require the npm-enabled frontend container (built from `frontend/Dockerfile`). With the default `Dockerfile.frontend` image there is no npm inside the container, so instead pick up frontend changes by rebuilding that service:
+> ```sh
+> sudo docker-compose up --build frontend
+> ```
 
 ### Geolocation LLM configuration
 The `geolocation` backend plugin calls an external LLM to guess where a shot was filmed, and needs two settings:
