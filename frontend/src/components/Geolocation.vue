@@ -4,7 +4,7 @@
       <div>
         <div class="text-subtitle-1 font-weight-bold">Map</div>
         <div class="text-caption grey--text text--darken-1">
-          Mock data for UI demonstration — not model output
+          Predicted locations from the Geolocation plugin
         </div>
       </div>
       <v-chip small outlined color="deep-purple">{{ timecode(currentTime) }}</v-chip>
@@ -24,7 +24,7 @@ import { mapStores } from "pinia";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { usePlayerStore } from "@/store/player";
-import { LOCATION_FIXTURE, LOCATION_BY_TAG, generateGeolocationSequence } from "@/plugins/geolocationSampleData";
+import { deriveGeolocationSequence } from "@/plugins/geolocationRows";
 
 // Secondary cities appear only after the street-detail zoom level is reached.
 const DETAIL_LOCATION_FIXTURE = [
@@ -89,32 +89,37 @@ export default {
     currentTime() {
       return Math.min(Math.max(this.playerStore.currentTime || 0, 0), this.duration);
     },
-    shotTemplate() {
-      return generateGeolocationSequence({ videoId: this.videoId, duration: this.duration }).map((segment) => {
+    sequence() {
+      return deriveGeolocationSequence({ videoId: this.videoId }) || [];
+    },
+    segments() {
+      return this.sequence.map((segment, index) => {
         const top = segment.locations[0] || null;
         return {
           start: segment.start,
           end: segment.end,
-          tag: top?.tag ?? null,
-          confidence: top?.confidence ?? null,
+          ...(top || {}),
+          id: `geo-${index}`,
         };
       });
     },
-    segments() {
-      return this.shotTemplate.map((item, index) => ({
-        ...item,
-        ...(item.tag ? LOCATION_BY_TAG[item.tag] : {}),
-        id: `mock-geo-${index}`,
-      }));
-    },
     currentSegment() {
+      if (this.segments.length === 0) {
+        return { start: 0, end: this.duration, tag: null, confidence: null, latitude: null, longitude: null };
+      }
       return this.segments.find((segment) => this.currentTime >= segment.start && this.currentTime < segment.end) || this.segments[this.segments.length - 1];
     },
     mapLocations() {
-      return LOCATION_FIXTURE;
+      const uniqueLocations = new Map();
+      this.sequence.forEach(({ locations }) => {
+        locations.forEach((location) => {
+          if (!uniqueLocations.has(location.tag)) uniqueLocations.set(location.tag, location);
+        });
+      });
+      return [...uniqueLocations.values()];
     },
     mapAriaLabel() {
-      return this.currentSegment.tag ? `Mock map annotation at ${this.currentSegment.location}` : "Mock map annotation with no location prediction for the selected shot";
+      return this.currentSegment.tag ? `Map annotation at ${this.currentSegment.location}` : "No location prediction for the selected shot";
     },
     ...mapStores(usePlayerStore),
   },

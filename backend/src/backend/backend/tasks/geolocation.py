@@ -177,14 +177,22 @@ class Geolocation(Task):
             return {}
 
         with transaction.atomic():
+            category_db, _ = AnnotationCategory.objects.get_or_create(
+                name="Geolocation", video=video, owner=user
+            )
+
+            # Replace a previous run's results for this video/category instead of
+            # stacking a second timeline next to it.
+            Timeline.objects.filter(
+                video=video,
+                timelinesegment__annotations__category=category_db,
+            ).distinct().delete()
+            Annotation.objects.filter(video=video, category=category_db).delete()
+
             annotation_timeline_db = Timeline.objects.create(
                 video=video,
                 name=parameters.get("timeline"),
                 type=Timeline.TYPE_ANNOTATION,
-            )
-
-            category_db, _ = AnnotationCategory.objects.get_or_create(
-                name="Geolocation", video=video, owner=user
             )
 
             for shot in shot_segments:

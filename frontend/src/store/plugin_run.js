@@ -16,7 +16,8 @@ export const usePluginRunStore = defineStore("pluginRun", {
     return {
       pluginRuns: {},
       pluginRunList: [],
-      isLoading: false,
+      isLoading: false, // fetchForVideo (per-video)
+      isLoadingAll: false, // fetchAll (cross-video, used by Home.vue's polling) — separate flag so the two don't spuriously block each other
       pluginInProgress: false,
     };
   },
@@ -79,10 +80,10 @@ export const usePluginRunStore = defineStore("pluginRun", {
       // });
     },
     async fetchAll({ addResults = false }) {
-      if (this.isLoading) {
+      if (this.isLoadingAll) {
         return;
       }
-      this.isLoading = true;
+      this.isLoadingAll = true;
 
       let params = { add_results: addResults };
       return axios
@@ -94,7 +95,7 @@ export const usePluginRunStore = defineStore("pluginRun", {
           }
         })
         .finally(() => {
-          this.isLoading = false;
+          this.isLoadingAll = false;
         });
     },
     async fetchForVideo({ videoId = null, fetchResults = false }) {

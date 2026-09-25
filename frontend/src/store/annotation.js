@@ -5,6 +5,11 @@ import { defineStore } from 'pinia'
 import { usePlayerStore } from "./player";
 import { useAnnotationCategoryStore } from "@/store/annotation_category";
 
+// Keyed by resolved video id, not Pinia state, so an overlapping fetchForVideo
+// call waits for the in-flight request instead of silently no-oping (see
+// isLoading guard below) — plain module state, not reactive, matching the
+// derivedCache pattern in plugins/geolocationRows.js.
+const pendingFetchByVideoId = new Map();
 
 export const useAnnotationStore = defineStore('annotation', {
     state: () => {
@@ -125,27 +130,20 @@ export const useAnnotationStore = defineStore('annotation', {
         //         });
         // },
         async fetchForVideo({ videoId = null }) {
+            const playerStore = usePlayerStore();
+            const resolvedVideoId = videoId || playerStore.videoId;
+
             if (this.isLoading) {
-                return
+                return pendingFetchByVideoId.get(resolvedVideoId);
             }
             this.isLoading = true
 
             let params = {};
-
-            //use video id or take it from the current video
-            if (videoId) {
-                params.video_id = videoId;
-            } else {
-
-
-                const playerStore = usePlayerStore();
-                const videoId = playerStore.videoId;
-                if (videoId) {
-                    params.video_id = videoId;
-                }
+            if (resolvedVideoId) {
+                params.video_id = resolvedVideoId;
             }
 
-            return axios
+            const promise = axios
                 .get(`${config.API_LOCATION}/annotation/list`, { params })
                 .then((res) => {
                     if (res.data.status === "ok") {
@@ -154,7 +152,10 @@ export const useAnnotationStore = defineStore('annotation', {
                 })
                 .finally(() => {
                     this.isLoading = false;
+                    pendingFetchByVideoId.delete(resolvedVideoId);
                 });
+            pendingFetchByVideoId.set(resolvedVideoId, promise);
+            return promise;
             // .catch((error) => {
             //     const info = { date: Date(), error, origin: 'collection' };
             //     commit('error/update', info, { root: true });

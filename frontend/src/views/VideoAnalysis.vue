@@ -143,7 +143,7 @@ import { useAnnotationStore } from "@/store/annotation";
 import { useAnnotationCategoryStore } from "@/store/annotation_category";
 import ClusterTimelineItemOverview from "../components/ClusterTimelineItemOverview.vue";
 import Geolocation from "@/components/Geolocation.vue";
-import { buildGeolocationTimelineData } from "@/plugins/geolocationSampleData";
+import { buildGeolocationTimelineRows, resetGeolocationRows, findRawGeolocationTimelineId } from "@/plugins/geolocationRows";
 
 export default {
   data() {
@@ -340,10 +340,48 @@ export default {
         fetchResults: true,
       });
     },
+    // Reshapes the real geolocation plugin results (if any) into the "parent
+    // row + one child row per location" display structure (see
+    // plugins/geolocationRows.js). This hides the real, flat backend
+    // timeline client-side in favor of the derived rows built from it. Called
+    // at initial load and whenever fresh raw results land (see the
+    // geolocationRawFingerprint watcher below), so a re-run replaces stale
+    // rows instead of leaving them stacked alongside new ones.
+    refreshGeolocationRows() {
+      const videoId = this.$route.params.id;
+      const previousGeolocationRows = resetGeolocationRows({ videoId });
+      if (previousGeolocationRows) {
+        this.timelineStore.deleteFromStore(previousGeolocationRows.timelineIds);
+        this.timelineSegmentStore.deleteFromStore(previousGeolocationRows.timelineSegmentIds);
+        this.timelineSegmentAnnotationStore.deleteFromStore(previousGeolocationRows.timelineSegmentAnnotationIds);
+      }
+
+      const baseOrder = this.timelineStore
+        .forVideo(videoId)
+        .reduce((max, timeline) => Math.max(max, timeline.order), -1) + 1;
+      const geolocationRows = buildGeolocationTimelineRows({ videoId, baseOrder });
+      if (geolocationRows) {
+        this.timelineStore.deleteFromStore([geolocationRows.rawTimelineId]);
+        // updateInStore (unconditional overwrite), not updateStore, since a
+        // re-run reuses the same deterministic derived ids with new content —
+        // updateStore silently skips ids that already exist in the store.
+        this.annotationStore.updateInStore(geolocationRows.annotations);
+        this.timelineStore.updateStore(geolocationRows.timelines);
+        this.timelineSegmentStore.updateStore(geolocationRows.timelineSegments);
+        this.timelineSegmentAnnotationStore.updateStore(geolocationRows.timelineSegmentAnnotations);
+      }
+    },
   },
   computed: {
     pluginInProgress() {
       return this.pluginRunStore.pluginInProgress;
+    },
+    // The real backend timeline's id once every store its data is spread
+    // across (annotation, timeline, segment, join-row) has actually landed —
+    // not merely when a run's status flips. Watched below to know exactly
+    // when to (re)build the display rows.
+    geolocationRawFingerprint() {
+      return findRawGeolocationTimelineId({ videoId: this.$route.params.id });
     },
     timelines() {
       return this.timelineStore.forVideo(this.$route.params.id);
@@ -429,28 +467,31 @@ export default {
   async created() {
     // fetch the data when the view is created and the data is
     this.videoStore.pushSelected(this.$route.params.id);
+
+    // Pinia stores persist across client-side navigation. timelineSegmentStore
+    // and timelineSegmentAnnotationStore in particular are only cleared inside
+    // their own fetchForVideo(), which doesn't run until after the timeline
+    // fetch's network round-trip resolves — so without this upfront clear, any
+    // tab reading segments (not just geolocation) would briefly render the
+    // previous video's stale data during that window. It also prevents the
+    // geolocation watcher from firing on leftover data from the previous visit
+    // before this visit's own fetch has landed.
+    this.annotationCategoryStore.clearStore();
+    this.annotationStore.clearStore();
+    this.timelineStore.clearStore();
+    this.timelineSegmentStore.clearStore();
+    this.timelineSegmentAnnotationStore.clearStore();
+
     await this.fetchData({ addResults: true });
 
-    // The geolocation plugin has no backend implementation yet, so its timeline
-    // is populated here from sample data using the same store actions a real
-    // plugin run's fetched results would use (see plugins/geolocationSampleData.js).
-    const videoId = this.$route.params.id;
-    const baseOrder = this.timelineStore
-      .forVideo(videoId)
-      .reduce((max, timeline) => Math.max(max, timeline.order), -1) + 1;
-    const geolocationData = buildGeolocationTimelineData({
-      videoId,
-      duration: this.playerStore.videoDuration,
-      baseOrder,
-    });
-    this.annotationCategoryStore.updateStore(geolocationData.annotationCategories);
-    this.annotationStore.updateStore(geolocationData.annotations);
-    this.timelineStore.updateStore(geolocationData.timelines);
-    this.timelineSegmentStore.updateStore(geolocationData.timelineSegments);
-    this.timelineSegmentAnnotationStore.updateStore(geolocationData.timelineSegmentAnnotations);
-    this.pluginRunResultStore.updateAll(geolocationData.pluginRunResults);
-
     this.isLoading = false;
+  },
+  beforeDestroy() {
+    // geolocationRows.js's derivedCache is plain module state, not a Pinia
+    // store, so it isn't reset when navigating away — clear this video's
+    // entry so a later revisit starts clean instead of carrying stale
+    // synthetic ids into resetGeolocationRows()'s next cleanup pass.
+    resetGeolocationRows({ videoId: this.$route.params.id });
   },
   components: {
     VideoPlayer,
@@ -480,6 +521,33 @@ export default {
       if (!newState) {
         clearInterval(this.fetchPluginTimer);
       }
+    },
+    // pluginInProgress flipping false does NOT mean the resulting store data
+    // has landed yet — plugin_run.js's fetchForVideo kicks off its
+    // annotation/timeline refetch as fire-and-forget promises it never
+    // awaits. This fingerprint instead reacts to the real data itself,
+    // whenever it actually arrives.
+    // Only react to a new (or first) raw backend result appearing — never to
+    // it disappearing, since refreshGeolocationRows() itself deletes the raw
+    // timeline from timelineStore once it's successfully derived the display
+    // rows from it (to avoid showing a duplicate row). Without this guard,
+    // that deletion would itself flip the fingerprint back to null and
+    // re-trigger a second pass that wipes the rows just injected.
+    //
+    // immediate: true makes this the single mechanism for triggering
+    // refreshGeolocationRows() — including the initial page load, not just
+    // a run finishing while already on the page. created() used to also
+    // call refreshGeolocationRows() directly, but on a reload where real
+    // data already exists, fetchData() populating the stores makes this
+    // watcher fire too, racing the direct call: whichever runs second finds
+    // the first already succeeded and wipes it out (see plan section 9).
+    geolocationRawFingerprint: {
+      immediate: true,
+      handler(newVal) {
+        if (newVal) {
+          this.refreshGeolocationRows();
+        }
+      },
     },
     isLoading(value) {
       if (!value) {
