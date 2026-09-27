@@ -9,8 +9,7 @@ import { usePluginRunResultStore } from "@/store/plugin_run_result";
 
 // Keyed by resolved video id, not Pinia state, so an overlapping fetchForVideo
 // call waits for the in-flight request instead of silently no-oping (see
-// isLoading guard below) — plain module state, not reactive, matching the
-// derivedCache pattern in plugins/geolocationRows.js.
+// isLoading guard below) — plain module state, not reactive.
 const pendingFetchByVideoId = new Map();
 
 export const useTimelineStore = defineStore("timeline", {
@@ -170,6 +169,15 @@ export const useTimelineStore = defineStore("timeline", {
           return null;
         }
         return timelines[0];
+      };
+    },
+    // Every nested descendant of a timeline (its children, their children,
+    // ...) - deleting a timeline cascades to these server-side (Timeline.parent
+    // is on_delete=CASCADE), so the local store needs to drop them too.
+    descendantIds() {
+      return (id) => {
+        const children = this.all.filter((t) => t.parent_id === id);
+        return children.flatMap((child) => [child.id, ...this.descendantIds(child.id)]);
       };
     },
   },
@@ -383,27 +391,25 @@ export const useTimelineStore = defineStore("timeline", {
         id: timeline_id,
       };
 
-      // update own store
-      this.deleteFromStore([timeline_id]);
-
-      // update all segments
-      const timelineSegmentStore = useTimelineSegmentStore();
-      timelineSegmentStore.deleteTimeline(timeline_id);
-
       return axios
         .post(`${config.API_LOCATION}/timeline/delete`, params)
         .then((res) => {
           if (res.data.status === "ok") {
-            // commit("delete", timeline_id);
+            // Only touch the local store once the backend has actually
+            // deleted the row - otherwise a failed request leaves the UI
+            // showing "deleted" until a reload reveals it never happened.
+            // Deleting cascades to children server-side (Timeline.parent is
+            // on_delete=CASCADE), so remove those from the store too.
+            const idsToRemove = [timeline_id, ...this.descendantIds(timeline_id)];
+            this.deleteFromStore(idsToRemove);
+
+            const timelineSegmentStore = useTimelineSegmentStore();
+            idsToRemove.forEach((id) => timelineSegmentStore.deleteTimeline(id));
           }
         })
         .finally(() => {
           this.isLoading = false;
         });
-      // .catch((error) => {
-      //     const info = { date: Date(), error, origin: 'collection' };
-      //     commit('error/update', info, { root: true });
-      // });
     },
     async rename({ timelineId, name }) {
       if (this.isLoading) {

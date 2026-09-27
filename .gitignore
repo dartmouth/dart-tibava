@@ -166,3 +166,4 @@ cython_debug/
 tibava.code-workspace
 local_temp/
 .claude/
+restart-env.sh

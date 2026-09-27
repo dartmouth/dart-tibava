@@ -30,10 +30,6 @@
 <script>
 import { mapStores } from "pinia";
 import { useTimelineStore } from "@/store/timeline";
-import {
-  isGeolocationParentTimelineId,
-  deleteGeolocationResults,
-} from "@/plugins/geolocationRows";
 
 export default {
   props: ["timeline"],
@@ -53,11 +49,7 @@ export default {
       }
       this.isSubmitting = true;
 
-      if (isGeolocationParentTimelineId(this.timeline)) {
-        await deleteGeolocationResults({ videoId: this.$route.params.id });
-      } else {
-        await this.timelineStore.delete(this.timeline);
-      }
+      await this.timelineStore.delete(this.timeline);
 
       this.isSubmitting = false;
       this.show = false;
