@@ -91,14 +91,18 @@ class TimelineDuplicate(View):
 
             new_timeline_db = timeline_db.clone(include_annotations=include_annotations)
 
+            # timeline_added[0] is always the root clone (matching timeline_db
+            # itself); any further entries are its recursively-cloned
+            # children. Only the root gets the custom name override.
+            added_timelines = new_timeline_db["timeline_added"]
             if data.get("name") and isinstance(data.get("name"), str):
-                new_timeline_db["timeline_added"].name = data.get("name")
-                new_timeline_db["timeline_added"].save()
+                added_timelines[0].name = data.get("name")
+                added_timelines[0].save()
 
             return JsonResponse(
                 {
                     "status": "ok",
-                    "timeline_added": [new_timeline_db["timeline_added"].to_dict()],
+                    "timeline_added": [x.to_dict() for x in added_timelines],
                     "timeline_segment_added": [x.to_dict() for x in new_timeline_db["timeline_segment_added"]],
                     "timeline_segment_annotation_added": [
                         x.to_dict() for x in new_timeline_db["timeline_segment_annotation_added"]

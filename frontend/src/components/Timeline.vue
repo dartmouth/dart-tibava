@@ -87,7 +87,7 @@
                     <v-list-item v-if="data.type == 'PLUGIN_RESULT'">
                       <ModalExportResult :timeline="data.id" />
                     </v-list-item>
-                    <v-list-item v-if="!isGeolocationChildTimelineId(data.id)">
+                    <v-list-item>
                       <ModalDeleteTimeline :timeline="data.id" />
                     </v-list-item>
                   </v-list>
@@ -228,7 +228,6 @@ import { useAnnotationCategoryStore } from "@/store/annotation_category";
 import { usePlayerStore } from "@/store/player";
 import { useVideoStore } from "@/store/video";
 import { usePluginRunResultStore } from "@/store/plugin_run_result";
-import { isGeolocationChildTimelineId } from "@/plugins/geolocationRows";
 
 export default {
   mixins: [TimeMixin],
@@ -352,7 +351,6 @@ export default {
     };
   },
   methods: {
-    isGeolocationChildTimelineId,
     startDragging(event, x, time) {
       this.dragSelection.x = x;
       this.dragSelection.start = time;

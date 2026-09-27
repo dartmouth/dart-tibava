@@ -24,7 +24,7 @@ import { mapStores } from "pinia";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { usePlayerStore } from "@/store/player";
-import { deriveGeolocationSequence } from "@/plugins/geolocationRows";
+import { deriveGeolocationSequence, deriveGeolocationLocations } from "@/plugins/geolocationRows";
 
 // Secondary cities appear only after the street-detail zoom level is reached.
 const DETAIL_LOCATION_FIXTURE = [
@@ -110,13 +110,7 @@ export default {
       return this.segments.find((segment) => this.currentTime >= segment.start && this.currentTime < segment.end) || this.segments[this.segments.length - 1];
     },
     mapLocations() {
-      const uniqueLocations = new Map();
-      this.sequence.forEach(({ locations }) => {
-        locations.forEach((location) => {
-          if (!uniqueLocations.has(location.tag)) uniqueLocations.set(location.tag, location);
-        });
-      });
-      return [...uniqueLocations.values()];
+      return deriveGeolocationLocations({ videoId: this.videoId }) || [];
     },
     mapAriaLabel() {
       return this.currentSegment.tag ? `Map annotation at ${this.currentSegment.location}` : "No location prediction for the selected shot";

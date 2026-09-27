@@ -7,8 +7,7 @@ import { useAnnotationCategoryStore } from "@/store/annotation_category";
 
 // Keyed by resolved video id, not Pinia state, so an overlapping fetchForVideo
 // call waits for the in-flight request instead of silently no-oping (see
-// isLoading guard below) — plain module state, not reactive, matching the
-// derivedCache pattern in plugins/geolocationRows.js.
+// isLoading guard below) — plain module state, not reactive.
 const pendingFetchByVideoId = new Map();
 
 export const useAnnotationStore = defineStore('annotation', {

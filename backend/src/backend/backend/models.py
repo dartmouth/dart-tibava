@@ -81,7 +81,10 @@ class Video(models.Model):
 
         new_video_db = Video.objects.create(**video_dict)
         if include_timelines:
-            for timeline in Timeline.objects.filter(video=self):
+            # Only top-level timelines - clone() recurses into children
+            # itself, so including child rows here too would double-clone
+            # them (once via their parent's recursion, once again directly).
+            for timeline in Timeline.objects.filter(video=self, parent=None):
                 timeline.clone(
                     video=new_video_db, include_annotations=include_annotations
                 )
@@ -263,6 +266,8 @@ class Timeline(models.Model):
     order = models.IntegerField(default=-1)
     parent = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True)
     collapse = models.BooleanField(default=False)
+    # {"lat": ..., "lon": ...}; only set by the geolocation plugin's child timelines
+    geo_point = models.JSONField(null=True, blank=True)
 
     VISUALIZATION_COLOR = "C"
     VISUALIZATION_CATEGORY_COLOR = "CC"
@@ -304,6 +309,7 @@ class Timeline(models.Model):
             "collapse": self.collapse,
             "colormap": self.colormap,
             "colormap_inverse": self.colormap_inverse,
+            "geo_point": self.geo_point,
         }
 
         if self.parent:
@@ -329,13 +335,15 @@ class Timeline(models.Model):
             ]
         return result
 
-    def clone(self, video=None, include_annotations=True):
+    def clone(self, video=None, include_annotations=True, parent=None):
         if not video:
             video = self.video
         new_timeline_db = Timeline.objects.create(
-            video=video, name=self.name, type=self.type
+            video=video, name=self.name, type=self.type, parent=parent,
+            geo_point=self.geo_point,
         )
 
+        timeline_added = [new_timeline_db]
         timeline_segment_added = []
         timeline_segment_annotations_added = []
         for segment in self.timelinesegment_set.all():
@@ -345,8 +353,23 @@ class Timeline(models.Model):
                 result["timeline_segment_annotation_added"]
             )
 
+        # Recurse into child timelines (e.g. geolocation's per-location rows,
+        # text_sentiment's/audio_classification's per-category rows) so
+        # duplicating a parent duplicates its children too, correctly
+        # re-parented under the new clone.
+        for child in Timeline.objects.filter(parent=self):
+            child_result = child.clone(
+                video=video, include_annotations=include_annotations,
+                parent=new_timeline_db,
+            )
+            timeline_added.extend(child_result["timeline_added"])
+            timeline_segment_added.extend(child_result["timeline_segment_added"])
+            timeline_segment_annotations_added.extend(
+                child_result["timeline_segment_annotation_added"]
+            )
+
         return {
-            "timeline_added": new_timeline_db,
+            "timeline_added": timeline_added,
             "timeline_segment_added": timeline_segment_added,
             "timeline_segment_annotation_added": timeline_segment_annotations_added,
         }
