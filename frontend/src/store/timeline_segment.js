@@ -10,6 +10,12 @@ import { useTimelineStore } from "@/store/timeline";
 import { useShotStore } from "@/store/shot";
 import { usePlayerStore } from "@/store/player";
 
+// Keyed by resolved video id, not Pinia state, so an overlapping fetchForVideo
+// call waits for the in-flight request instead of silently no-oping (see
+// isLoading guard below) — plain module state, not reactive, matching the
+// derivedCache pattern in plugins/geolocationRows.js.
+const pendingFetchByVideoId = new Map();
+
 export const useTimelineSegmentStore = defineStore("timelineSegment", {
   state: () => {
     return {
@@ -394,8 +400,11 @@ export const useTimelineSegmentStore = defineStore("timelineSegment", {
       // });
     },
     async fetchForVideo({ timelineId, videoId, clear = true }) {
+      const playerStore = usePlayerStore();
+      const resolvedVideoId = videoId || playerStore.videoId;
+
       if (this.isLoading) {
-        return;
+        return pendingFetchByVideoId.get(resolvedVideoId);
       }
       this.isLoading = true;
 
@@ -403,19 +412,13 @@ export const useTimelineSegmentStore = defineStore("timelineSegment", {
       if (timelineId) {
         params.timeline_id = timelineId;
       }
-      if (videoId) {
-        params.video_id = videoId;
-      } else {
-        const playerStore = usePlayerStore();
-        const videoId = playerStore.videoId;
-        if (videoId) {
-          params.video_id = videoId;
-        }
+      if (resolvedVideoId) {
+        params.video_id = resolvedVideoId;
       }
       if (clear) {
         this.clearStore();
       }
-      return axios
+      const promise = axios
         .get(`${config.API_LOCATION}/timeline/segment/list`, { params })
         .then((res) => {
           if (res.data.status === "ok") {
@@ -424,7 +427,10 @@ export const useTimelineSegmentStore = defineStore("timelineSegment", {
         })
         .finally(() => {
           this.isLoading = false;
+          pendingFetchByVideoId.delete(resolvedVideoId);
         });
+      pendingFetchByVideoId.set(resolvedVideoId, promise);
+      return promise;
       // .catch((error) => {
       //     const info = { date: Date(), error, origin: 'collection' };
       //     commit('error/update', info, { root: true });
@@ -472,12 +478,18 @@ export const useTimelineSegmentStore = defineStore("timelineSegment", {
     deleteFromStore(ids) {
       ids.forEach((id) => {
         this.timelineSegmentListDeleted.push(id);
+        // splice(-1, 1) removes the LAST element instead of doing nothing
+        // when the id isn't found, so these guards are required, not cosmetic.
         // delete from selected
         let index = this.timelineSegmentListSelected.findIndex((f) => f === id);
-        this.timelineSegmentListSelected.splice(index, 1);
+        if (index > -1) {
+          this.timelineSegmentListSelected.splice(index, 1);
+        }
         // delete from store
         index = this.timelineSegmentList.findIndex((f) => f === id);
-        this.timelineSegmentList.splice(index, 1);
+        if (index > -1) {
+          this.timelineSegmentList.splice(index, 1);
+        }
 
         delete this.timelineSegments[id];
       });

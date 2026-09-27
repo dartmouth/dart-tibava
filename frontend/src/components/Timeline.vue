@@ -87,7 +87,7 @@
                     <v-list-item v-if="data.type == 'PLUGIN_RESULT'">
                       <ModalExportResult :timeline="data.id" />
                     </v-list-item>
-                    <v-list-item>
+                    <v-list-item v-if="!isGeolocationChildTimelineId(data.id)">
                       <ModalDeleteTimeline :timeline="data.id" />
                     </v-list-item>
                   </v-list>
@@ -228,6 +228,7 @@ import { useAnnotationCategoryStore } from "@/store/annotation_category";
 import { usePlayerStore } from "@/store/player";
 import { useVideoStore } from "@/store/video";
 import { usePluginRunResultStore } from "@/store/plugin_run_result";
+import { isGeolocationChildTimelineId } from "@/plugins/geolocationRows";
 
 export default {
   mixins: [TimeMixin],
@@ -351,6 +352,7 @@ export default {
     };
   },
   methods: {
+    isGeolocationChildTimelineId,
     startDragging(event, x, time) {
       this.dragSelection.x = x;
       this.dragSelection.start = time;
@@ -997,6 +999,16 @@ export default {
       this.removeSegmentSelection(oldSelection);
       this.addSegmentSelection(newSelection);
     },
+  },
+  beforeDestroy() {
+    // PIXI's ticker runs its own animation-frame loop independent of Vue's
+    // lifecycle — without this, navigating away leaves it running forever,
+    // still reading the same app-wide Pinia stores, so a later revisit ends
+    // up with two tickers both drawing every newly-added timeline.
+    if (this.app) {
+      this.app.destroy(true, { children: true, texture: true, baseTexture: true });
+      this.app = null;
+    }
   },
   mounted() {
     this.containerWidth = this.$refs.container.clientWidth;

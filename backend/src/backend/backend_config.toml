@@ -40,6 +40,11 @@ client_class = "django_redis.client.DefaultClient"
 grpc_host = "analyser"
 grpc_port = 50051
 
+# Geolocation External LLM Settings (endpoint to be finalized)
+[geolocation]
+# api_url = ""
+# api_key = ""
+
 # User Limits Configuration
 [user.limits]
 allowance = -1

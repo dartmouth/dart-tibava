@@ -7,6 +7,12 @@ import { useAnnotationCategoryStore } from "@/store/annotation_category";
 import { useAnnotationStore } from "@/store/annotation";
 import { usePlayerStore } from "@/store/player";
 
+// Keyed by resolved video id, not Pinia state, so an overlapping fetchForVideo
+// call waits for the in-flight request instead of silently no-oping (see
+// isLoading guard below) — plain module state, not reactive, matching the
+// derivedCache pattern in plugins/geolocationRows.js.
+const pendingFetchByVideoId = new Map();
+
 export const useTimelineSegmentAnnotationStore = defineStore(
   "timelineSegmentAnnotation",
   {
@@ -137,25 +143,22 @@ export const useTimelineSegmentAnnotationStore = defineStore(
         // });
       },
       async fetchForVideo({ videoId, clear = true }) {
+        const playerStore = usePlayerStore();
+        const resolvedVideoId = videoId || playerStore.videoId;
+
         if (this.isLoading) {
-          return;
+          return pendingFetchByVideoId.get(resolvedVideoId);
         }
         this.isLoading = true;
 
         let params = {};
-        if (videoId) {
-          params.video_id = videoId;
-        } else {
-          const playerStore = usePlayerStore();
-          const videoId = playerStore.videoId;
-          if (videoId) {
-            params.video_id = videoId;
-          }
+        if (resolvedVideoId) {
+          params.video_id = resolvedVideoId;
         }
         if (clear) {
           this.clearStore();
         }
-        return axios
+        const promise = axios
           .get(`${config.API_LOCATION}/timeline/segment/annotation/list`, {
             params,
           })
@@ -166,7 +169,10 @@ export const useTimelineSegmentAnnotationStore = defineStore(
           })
           .finally(() => {
             this.isLoading = false;
+            pendingFetchByVideoId.delete(resolvedVideoId);
           });
+        pendingFetchByVideoId.set(resolvedVideoId, promise);
+        return promise;
         // .catch((error) => {
         //     const info = { date: Date(), error, origin: 'collection' };
         //     commit('error/update', info, { root: true });

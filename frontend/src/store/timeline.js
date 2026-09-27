@@ -7,6 +7,12 @@ import { useTimelineSegmentStore } from "@/store/timeline_segment";
 import { usePlayerStore } from "@/store/player";
 import { usePluginRunResultStore } from "@/store/plugin_run_result";
 
+// Keyed by resolved video id, not Pinia state, so an overlapping fetchForVideo
+// call waits for the in-flight request instead of silently no-oping (see
+// isLoading guard below) — plain module state, not reactive, matching the
+// derivedCache pattern in plugins/geolocationRows.js.
+const pendingFetchByVideoId = new Map();
+
 export const useTimelineStore = defineStore("timeline", {
   state: () => {
     return {
@@ -21,7 +27,8 @@ export const useTimelineStore = defineStore("timeline", {
         end: null,
       },
       visualizationData: null,
-      isLoading: false,
+      isLoading: false, // fetchForVideo (per-video)
+      isLoadingAll: false, // fetchAll (cross-video, used by Home.vue's polling) — separate flag so the two don't spuriously block each other
     };
   },
   getters: {
@@ -63,19 +70,20 @@ export const useTimelineStore = defineStore("timeline", {
       return Object.values(state.timelines);
     },
     added(state) {
-      return state.timelineListAdded.map((data) => [
-        data[0],
-        state.timelines[data[1]],
-      ]);
+      // A queued id can be deleted (e.g. hidden client-side right after being
+      // fetched) before this is ever read; treat that as a no-op instead of
+      // handing back an entry whose timeline is undefined.
+      return state.timelineListAdded
+        .filter((data) => state.timelines[data[1]])
+        .map((data) => [data[0], state.timelines[data[1]]]);
     },
     deleted(state) {
       return state.timelineListDeleted;
     },
     changed(state) {
-      return state.timelineListChanged.map((data) => [
-        data[0],
-        state.timelines[data[1]],
-      ]);
+      return state.timelineListChanged
+        .filter((data) => state.timelines[data[1]])
+        .map((data) => [data[0], state.timelines[data[1]]]);
     },
     get(state) {
       return (id) => {
@@ -200,10 +208,10 @@ export const useTimelineStore = defineStore("timeline", {
       // }
     },
     async fetchAll({ addResultsType = false }) {
-      if (this.isLoading) {
+      if (this.isLoadingAll) {
         return;
       }
-      this.isLoading = true;
+      this.isLoadingAll = true;
       let params = { add_results_type: addResultsType };
 
       return axios
@@ -214,30 +222,26 @@ export const useTimelineStore = defineStore("timeline", {
           }
         })
         .finally(() => {
-          this.isLoading = false;
+          this.isLoadingAll = false;
         });
     },
     async fetchForVideo({ videoId = null, clear = true }) {
+      const playerStore = usePlayerStore();
+      const resolvedVideoId = videoId || playerStore.videoId;
+
       if (this.isLoading) {
-        return;
+        return pendingFetchByVideoId.get(resolvedVideoId);
       }
       this.isLoading = true;
 
-      //use video id or take it from the current video
       let params = {};
-      if (videoId) {
-        params.video_id = videoId;
-      } else {
-        const playerStore = usePlayerStore();
-        const videoId = playerStore.videoId;
-        if (videoId) {
-          params.video_id = videoId;
-        }
+      if (resolvedVideoId) {
+        params.video_id = resolvedVideoId;
       }
       if (clear) {
         this.clearStore();
       }
-      return axios
+      const promise = axios
         .get(`${config.API_LOCATION}/timeline/list`, { params })
         .then((res) => {
           if (res.data.status === "ok") {
@@ -256,7 +260,10 @@ export const useTimelineStore = defineStore("timeline", {
         })
         .finally(() => {
           this.isLoading = false;
+          pendingFetchByVideoId.delete(resolvedVideoId);
         });
+      pendingFetchByVideoId.set(resolvedVideoId, promise);
+      return promise;
       // .catch((error) => {
       //     const info = { date: Date(), error, origin: 'collection' };
       //     commit('error/update', info, { root: true });
@@ -562,8 +569,12 @@ export const useTimelineStore = defineStore("timeline", {
     deleteFromStore(ids) {
       ids.forEach((id) => {
         this.timelineListDeleted.push([Date.now(), id]);
-        let index = this.timelineList.findIndex((f) => f === id);
-        this.timelineList.splice(index, 1);
+        const index = this.timelineList.findIndex((f) => f === id);
+        // splice(-1, 1) removes the LAST element instead of doing nothing
+        // when the id isn't found, so this guard is required, not cosmetic.
+        if (index > -1) {
+          this.timelineList.splice(index, 1);
+        }
         Vue.delete(this.timelines, id);
       });
       this.updateVisibleStore();

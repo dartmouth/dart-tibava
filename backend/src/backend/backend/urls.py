@@ -224,4 +224,10 @@ urlpatterns = [
         views.VideoAnalysisStateSetSelectedFaceClustering.as_view(),
         name="video_analysis_set_selected_face_clustering",
     ),
+    #
+    path(
+        "llm/test-echo/<str:plugin_name>/",
+        views.llm_test_echo,
+        name="llm_test_echo",
+    ),
 ]
