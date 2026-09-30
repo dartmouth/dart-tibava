@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import shutil
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import imageio
 import PIL.Image
@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 MAX_FRAMES_PER_SHOT = 4
 MAX_FRAME_DIM = 1024
 GEOLOCATION_CACHE_ROOT = "/predictions/geolocation"
+TRANSCRIPT_CONTEXT_PADDING_SECONDS = 10.0
 
 
 @PluginManager.export_parser("geolocation")
@@ -45,6 +46,7 @@ class GeolocationParser(Parser):
         self.valid_parameter = {
             "timeline": {"parser": str, "default": "Geolocation"},
             "shot_timeline_id": {"default": None},
+            "whisper_timeline_id": {"default": None},
             "fps": {"parser": float, "default": 2},
             "confidence_threshold": {"parser": float, "default": 0.3},
             "year": {"parser": str, "default": None},
@@ -105,6 +107,44 @@ def _extract_shot_frames(video_path: str, shots_with_timestamps) -> Dict[str, Li
     return frames_by_shot
 
 
+def _load_transcript_segments(whisper_timeline_id: Optional[str]) -> List[Tuple[float, float, str]]:
+    if not whisper_timeline_id:
+        return []
+    segments = (
+        TimelineSegment.objects.filter(timeline_id=whisper_timeline_id)
+        .order_by("start")
+        .prefetch_related("annotations")
+    )
+    return [
+        (
+            segment.start,
+            segment.end,
+            " ".join(a.name for a in segment.annotations.all() if a.name).strip(),
+        )
+        for segment in segments
+    ]
+
+
+def _transcript_text_for_shot(
+    transcript_segments: List[Tuple[float, float, str]],
+    start: float,
+    end: float,
+    padding: float = TRANSCRIPT_CONTEXT_PADDING_SECONDS,
+) -> str:
+    # Shot and transcript segment boundaries don't line up (a sentence naming
+    # a place may start just before or finish just after a shot cut), so
+    # overlap is matched against a padded window rather than the shot's exact
+    # [start, end).
+    window_start = start - padding
+    window_end = end + padding
+    matches = [
+        text
+        for (t_start, t_end, text) in transcript_segments
+        if text and t_start < window_end and t_end > window_start
+    ]
+    return " ".join(matches).strip()
+
+
 def _encode_frame_jpeg(frame, max_dim: int = MAX_FRAME_DIM) -> bytes:
     frame = image_normalize(frame)
     frame = image_resize(frame, max_dim=max_dim)
@@ -122,22 +162,41 @@ def _encode_frame_jpeg(frame, max_dim: int = MAX_FRAME_DIM) -> bytes:
 # The cache directory is fingerprinted on whatever affects what's actually
 # asked of the LLM (fps, model, resolved prompt) - not confidence_threshold,
 # which is applied fresh from the raw cached candidates every time, so
-# changing just the threshold never requires new LLM calls. Matching is
-# per-shot (by the shot's own start/end), not a whole-sequence comparison, so
-# a shot-detection tweak that only changes a few boundaries still reuses
-# everything else; a fully different shot list naturally matches nothing and
-# falls back to a fresh run.
-def _geolocation_cache_dir(video_id: str, fps: float, model: str, prompt: str) -> str:
-    fingerprint = hashlib.sha1(f"{fps}|{model}|{prompt}".encode("utf-8")).hexdigest()[:16]
+# changing just the threshold never requires new LLM calls. It also includes
+# whisper_timeline_id when set, so enabling/switching a transcript reference
+# doesn't collide with previously-cached frame-only or other-source results.
+# Matching is per-shot (by the shot's own start/end, plus a hash of that
+# shot's own resolved transcript text when transcript context is in use), not
+# a whole-sequence comparison, so a shot-detection tweak that only changes a
+# few boundaries still reuses everything else, and editing/re-running the
+# referenced transcript (same whisper_timeline_id) only busts the shots whose
+# resolved text actually changed; a fully different shot list naturally
+# matches nothing and falls back to a fresh run.
+def _geolocation_cache_dir(
+    video_id: str,
+    fps: float,
+    model: str,
+    prompt: str,
+    whisper_timeline_id: Optional[str] = None,
+) -> str:
+    fingerprint_input = f"{fps}|{model}|{prompt}"
+    if whisper_timeline_id:
+        fingerprint_input += f"|{whisper_timeline_id}"
+    fingerprint = hashlib.sha1(fingerprint_input.encode("utf-8")).hexdigest()[:16]
     return os.path.join(GEOLOCATION_CACHE_ROOT, video_id, fingerprint)
 
 
-def _shot_cache_path(cache_dir: str, start: float, end: float) -> str:
+def _shot_cache_path(cache_dir: str, start: float, end: float, transcript_text: str = "") -> str:
+    if transcript_text:
+        transcript_hash = hashlib.sha1(transcript_text.encode("utf-8")).hexdigest()[:8]
+        return os.path.join(cache_dir, f"{start:.3f}_{end:.3f}_{transcript_hash}.json")
     return os.path.join(cache_dir, f"{start:.3f}_{end:.3f}.json")
 
 
-def _load_cached_shot(cache_dir: str, start: float, end: float) -> Optional[List[dict]]:
-    path = _shot_cache_path(cache_dir, start, end)
+def _load_cached_shot(
+    cache_dir: str, start: float, end: float, transcript_text: str = ""
+) -> Optional[List[dict]]:
+    path = _shot_cache_path(cache_dir, start, end, transcript_text)
     if not os.path.exists(path):
         return None
     try:
@@ -148,9 +207,11 @@ def _load_cached_shot(cache_dir: str, start: float, end: float) -> Optional[List
         return None
 
 
-def _save_cached_shot(cache_dir: str, start: float, end: float, candidates: List[dict]) -> None:
+def _save_cached_shot(
+    cache_dir: str, start: float, end: float, candidates: List[dict], transcript_text: str = ""
+) -> None:
     os.makedirs(cache_dir, exist_ok=True)
-    path = _shot_cache_path(cache_dir, start, end)
+    path = _shot_cache_path(cache_dir, start, end, transcript_text)
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w") as f:
         json.dump({"start": start, "end": end, "candidates": candidates}, f)
@@ -211,16 +272,25 @@ class Geolocation(Task):
         video_path = media_path_to_video(video.file.hex, video.ext)
         fps = parameters.get("fps")
         confidence_threshold = parameters.get("confidence_threshold")
+        whisper_timeline_id = parameters.get("whisper_timeline_id")
         prompt = build_geolocation_prompt(parameters.get("year"), parameters.get("prompt"))
 
+        transcript_segments = _load_transcript_segments(whisper_timeline_id)
+        shot_transcript_text = {
+            shot.id: _transcript_text_for_shot(transcript_segments, shot.start, shot.end)
+            for shot in shot_segments
+        }
+
         cache_dir = _geolocation_cache_dir(
-            video.id.hex, fps, getattr(client, "model", "mock"), prompt
+            video.id.hex, fps, getattr(client, "model", "mock"), prompt, whisper_timeline_id
         )
 
         n_shots = len(shot_segments)
         results_by_shot = {}
         for shot in shot_segments:
-            cached = _load_cached_shot(cache_dir, shot.start, shot.end)
+            cached = _load_cached_shot(
+                cache_dir, shot.start, shot.end, shot_transcript_text[shot.id]
+            )
             if cached is not None:
                 results_by_shot[shot.id] = cached
 
@@ -243,9 +313,14 @@ class Geolocation(Task):
                 logger.warning("No frames extracted for shot %s, skipping", shot.id)
                 candidates = []
             else:
+                shot_prompt = build_geolocation_prompt(
+                    parameters.get("year"),
+                    parameters.get("prompt"),
+                    shot_transcript_text[shot.id],
+                )
                 encoded_frames = [_encode_frame_jpeg(frame) for frame in frames]
                 candidates = client.locate(
-                    encoded_frames, prompt, request_label=f"shot={shot.id}"
+                    encoded_frames, shot_prompt, request_label=f"shot={shot.id}"
                 )
                 logger.info(
                     "Geolocation parsed candidates shot=%s: %s",
@@ -254,7 +329,9 @@ class Geolocation(Task):
                 )
 
             results_by_shot[shot.id] = candidates
-            _save_cached_shot(cache_dir, shot.start, shot.end, candidates)
+            _save_cached_shot(
+                cache_dir, shot.start, shot.end, candidates, shot_transcript_text[shot.id]
+            )
 
             if plugin_run is not None:
                 plugin_run.progress = (cache_hits + i + 1) / n_shots

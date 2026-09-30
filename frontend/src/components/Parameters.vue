@@ -11,6 +11,11 @@
         item-text="name" item-value="ids" v-if="parameter.field == 'select_timeline' && shot_timelines.length > 0"
         :key="parameter.name" persistent-hint></v-select>
 
+      <v-select v-model="parameter.value" :items="transcript_timelines" :label="parameter.text" :hint="parameter.hint"
+        item-text="name" item-value="ids" v-if="parameter.field == 'select_transcript_timeline' &&
+      transcript_timelines.length > 0
+      " :key="parameter.name" persistent-hint></v-select>
+
       <v-select v-model="parameter.value" :items="scalar_timelines" :label="parameter.text" :hint="parameter.hint"
         item-text="name" item-value="ids" v-if="parameter.field == 'select_scalar_timelines' &&
       scalar_timelines.length > 0
@@ -127,6 +132,12 @@ export default {
     shot_timelines() {
       let timelines = this.timelineStore.all.filter(
         (timeline) => timeline.type == "ANNOTATION" && this.videoIds.indexOf(timeline.video_id) >= 0
+      );
+      return this.groupTimelines(timelines);
+    },
+    transcript_timelines() {
+      let timelines = this.timelineStore.all.filter(
+        (timeline) => timeline.type == "TRANSCRIPT" && this.videoIds.indexOf(timeline.video_id) >= 0
       );
       return this.groupTimelines(timelines);
     },

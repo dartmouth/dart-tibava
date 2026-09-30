@@ -165,6 +165,8 @@
       "shot_timeline_hint": "*The annotations are created based on the shot boundaries of the selected timeline",
       "scalar_timeline_name": "Select Timeline",
       "scalar_timeline_hint": "*The scalar values of the selected timelines will be aggregated",
+      "whisper_timeline_name": "Reference Transcript Timeline",
+      "whisper_timeline_hint": "*Optional: an existing speech-recognition transcript to use as additional context for the location guess",
       "fps": "Frames per Second (FPS)",
       "normalize": "Normalize Results?",
       "number_field": {

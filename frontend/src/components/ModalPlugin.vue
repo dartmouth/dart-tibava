@@ -1077,6 +1077,12 @@ export default {
                   hint: this.$t("modal.plugin.geolocation.year_hint"),
                 },
                 {
+                  field: "select_transcript_timeline",
+                  name: "whisper_timeline_id",
+                  text: this.$t("modal.plugin.whisper_timeline_name"),
+                  hint: this.$t("modal.plugin.whisper_timeline_hint"),
+                },
+                {
                   // Keep this default in sync with DEFAULT_GEOLOCATION_PROMPT
                   // in backend/src/backend/backend/utils/llm_client.py
                   field: "textarea",
@@ -1086,7 +1092,8 @@ export default {
                     " Identify the most likely real-world geographic location shown in" +
                     ' these frames. Respond with a JSON array of up to 3 candidate' +
                     ' locations, ranked from most to least likely, each an object with the' +
-                    ' keys "label" (a short human-readable place name), "lat" and "lon"' +
+                    ' keys "label" (a short human-readable place name, standard format: [specific' +
+                    ' location if available] [city name if available] [country name]), "lat" and "lon"' +
                     ' (decimal degrees), and "confidence" (a number between 0 and 1). If no' +
                     " reasonable guess can be made, respond with an empty JSON array." +
                     " Respond with only the JSON array and no additional text.",
@@ -1865,7 +1872,8 @@ export default {
         for (const param of parameters) {
           if (
             param.name === "shot_timeline_id" ||
-            param.name == "scalar_timeline_id"
+            param.name === "scalar_timeline_id" ||
+            param.name === "whisper_timeline_id"
           ) {
             video_params.push({
               name: param.name,

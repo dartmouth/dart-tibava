@@ -101,11 +101,19 @@ DEFAULT_GEOLOCATION_PROMPT = (
 
 
 def build_geolocation_prompt(
-    year: Optional[str] = None, prompt: Optional[str] = None
+    year: Optional[str] = None,
+    prompt: Optional[str] = None,
+    transcript: Optional[str] = None,
 ) -> str:
     base_prompt = prompt if prompt else DEFAULT_GEOLOCATION_PROMPT
     if year:
-        return f"{base_prompt} This footage is from approximately the year {year}."
+        base_prompt = f"{base_prompt} This footage is from approximately the year {year}."
+    if transcript:
+        base_prompt = (
+            f"{base_prompt} The following speech transcript occurs during this shot and"
+            f' may help identify the location (it may also be unrelated or absent):'
+            f' "{transcript}"'
+        )
     return base_prompt
 
 
