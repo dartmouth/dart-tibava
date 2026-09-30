@@ -80,7 +80,7 @@ class TransnetShotdetection(
             # (131362, 27, 48, 3)
             self.update_callbacks(callbacks, progress=progress)
 
-            with torch.no_grad(), torch.cuda.amp.autocast():
+            with torch.no_grad(), torch.autocast(device_type=self.device, enabled=(self.device == "cuda")):
                 raw_result = self.model(torch.from_numpy(inp).to(self.device))
             single_frame_pred = raw_result[0].cpu().detach().numpy()
             all_frames_pred = raw_result[1].cpu().detach().numpy()
