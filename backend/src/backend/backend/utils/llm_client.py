@@ -92,7 +92,8 @@ DEFAULT_GEOLOCATION_PROMPT = (
     " Identify the most likely real-world geographic location shown in"
     ' these frames. Respond with a JSON array of up to 3 candidate'
     ' locations, ranked from most to least likely, each an object with the'
-    ' keys "label" (a short human-readable place name), "lat" and "lon"'
+    ' keys "label" (a short human-readable place name, standard format: [specific' 
+    ' location if available] [city name if available] [country name]), "lat" and "lon"'
     ' (decimal degrees), and "confidence" (a number between 0 and 1). If no'
     " reasonable guess can be made, respond with an empty JSON array."
     " Respond with only the JSON array and no additional text."
