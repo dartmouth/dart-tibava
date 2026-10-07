@@ -99,15 +99,16 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - "open-clip-torch==2.24.0"
-              - git+https://github.com/SpringsteinM/imageio.git
-              - torch==2.2.0
-              - scikit-learn==1.4.0
-              - transformers==4.37.2
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - "open-clip-torch==2.24.0"
+          #    - git+https://github.com/SpringsteinM/imageio.git
+          #    - torch==2.2.0
+          #    - scikit-learn==1.4.0
+          #    - transformers==4.37.2
   - name: clip_text_embedding
     route_prefix: /clip_text_embedding
     import_path: inference_ray.main:app_builder
@@ -122,15 +123,16 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - "open-clip-torch==2.24.0"
-              - git+https://github.com/SpringsteinM/imageio.git
-              - torch==2.2.0
-              - scikit-learn==1.4.0
-              - transformers==4.37.2
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - "open-clip-torch==2.24.0"
+          #    - git+https://github.com/SpringsteinM/imageio.git
+          #    - torch==2.2.0
+          #    - scikit-learn==1.4.0
+          #    - transformers==4.37.2
   - name: clip_ontology_probs
     route_prefix: /clip_ontology_probs
     import_path: inference_ray.main:app_builder
@@ -145,15 +147,16 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - "open-clip-torch==2.24.0"
-              - git+https://github.com/SpringsteinM/imageio.git
-              - torch==2.2.0
-              - scikit-learn==1.4.0
-              - transformers==4.37.2
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - "open-clip-torch==2.24.0"
+          #    - git+https://github.com/SpringsteinM/imageio.git
+          #    - torch==2.2.0
+          #    - scikit-learn==1.4.0
+          #    - transformers==4.37.2
   - name: clip_probs
     route_prefix: /clip_probs
     import_path: inference_ray.main:app_builder
@@ -168,15 +171,16 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - "open-clip-torch==2.24.0"
-              - git+https://github.com/SpringsteinM/imageio.git
-              - torch==2.2.0
-              - scikit-learn==1.4.0
-              - transformers==4.37.2
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - "open-clip-torch==2.24.0"
+          #    - git+https://github.com/SpringsteinM/imageio.git
+          #    - torch==2.2.0
+          #    - scikit-learn==1.4.0
+          #    - transformers==4.37.2
   - name: color_analyser
     route_prefix: /color_analyser
     import_path: inference_ray.main:app_builder
@@ -223,14 +227,15 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - onnxruntime-gpu==1.17.0
-              - onnx==1.15.0
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - onnxruntime-gpu==1.17.0
+          #    - onnx==1.15.0
   - name: insightface_video_detector_torch
     route_prefix: /insightface_video_detector_torch
     import_path: inference_ray.main:app_builder
@@ -244,13 +249,14 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - torch==2.2.0
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - torch==2.2.0
   - name: insightface_image_detector_torch
     route_prefix: /insightface_image_detector_torch
     import_path: inference_ray.main:app_builder
@@ -264,13 +270,14 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - torch==2.2.0
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - torch==2.2.0
   - name: insightface_facesize
     route_prefix: /insightface_facesize
     import_path: inference_ray.main:app_builder
@@ -301,14 +308,15 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - onnxruntime-gpu==1.17.0
-              - onnx==1.15.0
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - onnxruntime-gpu==1.17.0
+          #    - onnx==1.15.0
   - name: insightface_image_feature_extractor
     route_prefix: /insightface_image_feature_extractor
     import_path: inference_ray.main:app_builder
@@ -322,14 +330,15 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - onnxruntime-gpu==1.17.0
-              - onnx==1.15.0
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - onnxruntime-gpu==1.17.0
+          #    - onnx==1.15.0
   - name: min_max_norm
     route_prefix: /min_max_norm
     import_path: inference_ray.main:app_builder
@@ -357,13 +366,14 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - torch==2.2.0
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - torch==2.2.0
 
   - name: scalar_threshold
     route_prefix: /scalar_threshold
@@ -431,11 +441,12 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - torch==2.2.0
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - torch==2.2.0
   - name: thumbnail_generator
     route_prefix: /thumbnail_generator
     import_path: inference_ray.main:app_builder
@@ -462,11 +473,12 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - torch==2.2.0
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - torch==2.2.0
 
   - name: video_to_video
     route_prefix: /video_to_video
@@ -549,15 +561,16 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 2147483648  # ~2Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - librosa==0.10.1
-              - setuptools<82
-              - torch==2.2.0
-              - scikit-learn==1.4.0
-              - transformers==4.37.2
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - librosa==0.10.1
+          #    - setuptools<82
+          #    - torch==2.2.0
+          #    - scikit-learn==1.4.0
+          #    - transformers==4.37.2
 
   - name: x_clip_video_embedding
     route_prefix: /x_clip_video_embedding
@@ -572,17 +585,18 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - onnxruntime-gpu==1.17.0
-              - onnx==1.15.0
-              - cuda-python==12.2.0
-              - regex==2023.12.25
-              - ftfy==6.1.3
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - onnxruntime-gpu==1.17.0
+          #    - onnx==1.15.0
+          #    - cuda-python==12.2.0
+          #    - regex==2023.12.25
+          #    - ftfy==6.1.3
   - name: x_clip_text_embedding
     route_prefix: /x_clip_text_embedding
     import_path: inference_ray.main:app_builder
@@ -596,17 +610,18 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - onnxruntime-gpu==1.17.0
-              - onnx==1.15.0
-              - cuda-python==12.2.0
-              - regex==2023.12.25
-              - ftfy==6.1.3
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - onnxruntime-gpu==1.17.0
+          #    - onnx==1.15.0
+          #    - cuda-python==12.2.0
+          #    - regex==2023.12.25
+          #    - ftfy==6.1.3
   - name: x_clip_probs
     route_prefix: /x_clip_probs
     import_path: inference_ray.main:app_builder
@@ -621,17 +636,18 @@ applications:
         autoscaling_config:
           min_replicas: 0
           max_replicas: 2
-        ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
-          runtime_env:
-            uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
-              - onnxruntime-gpu==1.17.0
-              - onnx==1.15.0
-              - cuda-python==12.2.0
-              - regex==2023.12.25
-              - ftfy==6.1.3
+
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scikit-learn==1.4.0
+          #    - opencv-python-headless==4.9.0.80
+          #    - onnxruntime-gpu==1.17.0
+          #    - onnx==1.15.0
+          #    - cuda-python==12.2.0
+          #    - regex==2023.12.25
+          #    - ftfy==6.1.3
   - name: face_clustering
     route_prefix: /face_clustering
     import_path: inference_ray.main:app_builder
@@ -644,9 +660,11 @@ applications:
           min_replicas: 0
           max_replicas: 6
 
-          runtime_env:
-            uv:
-              - scipy==1.12.0
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scipy==1.12.0
   - name: place_clustering
     route_prefix: /place_clustering
     import_path: inference_ray.main:app_builder
@@ -659,9 +677,11 @@ applications:
           min_replicas: 0
           max_replicas: 6
 
-          runtime_env:
-            uv:
-              - scipy==1.12.0
+          # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
+          # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
+          #runtime_env:
+          #  uv:
+          #    - scipy==1.12.0
 
   - name: clustering
     route_prefix: /clustering
@@ -772,8 +792,6 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 1
-        ray_actor_options:
-          memory: 2147483648  # ~2Gi reserved so Ray won't overcommit this node's memory
 
   - name: face_tracking
     route_prefix: /face_tracking
@@ -804,7 +822,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -823,7 +840,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -842,7 +858,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -861,7 +876,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 2684354560  # ~2.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -883,7 +897,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -904,7 +917,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -925,7 +937,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -949,7 +960,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -969,7 +979,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -987,7 +996,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -1004,7 +1012,6 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
-          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -1028,8 +1035,6 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-        ray_actor_options:
-          memory: 2684354560  # ~2.5Gi reserved so Ray won't overcommit this node's memory
   - name: movie_pattern_intensify
     route_prefix: /movie_pattern_intensify
     import_path: inference_ray.main:app_builder
