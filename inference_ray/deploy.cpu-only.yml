@@ -15,7 +15,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           runtime_env:
             uv:
@@ -31,7 +31,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           runtime_env:
             uv:
@@ -54,7 +54,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           runtime_env:
             uv:
@@ -75,7 +75,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           runtime_env:
             uv:
@@ -98,8 +98,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - "open-clip-torch==2.24.0"
@@ -120,8 +121,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - "open-clip-torch==2.24.0"
@@ -142,8 +144,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - "open-clip-torch==2.24.0"
@@ -164,8 +167,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - "open-clip-torch==2.24.0"
@@ -184,7 +188,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           runtime_env:
             uv:
@@ -200,7 +204,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           runtime_env:
             uv:
@@ -218,8 +222,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -238,8 +243,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -257,8 +263,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -275,7 +282,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           num_cpus: 2
           runtime_env:
@@ -293,8 +300,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -313,8 +321,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -332,7 +341,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
   - name: places_classifier
     route_prefix: /places_classifier
     import_path: inference_ray.main:app_builder
@@ -347,8 +356,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -366,7 +376,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
 
   - name: shot_annotator
     route_prefix: /shot_annotator
@@ -379,7 +389,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
   - name: shot_density
     route_prefix: /shot_density
     import_path: inference_ray.main:app_builder
@@ -391,7 +401,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           runtime_env:
             uv:
@@ -407,7 +417,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
   - name: shot_type_classifier
     route_prefix: /shot_type_classifier
     import_path: inference_ray.main:app_builder
@@ -420,8 +430,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - torch==2.2.0
@@ -436,7 +447,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
 
   - name: transnet_shotdetection
     route_prefix: /transnet_shotdetection
@@ -450,8 +461,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - torch==2.2.0
@@ -467,7 +479,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
 
   - name: aggregate_list_scalar_per_time
     route_prefix: /aggregate_list_scalar_per_time
@@ -480,7 +492,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
 
   - name: aggregate_scalar
     route_prefix: /aggregate_scalar
@@ -493,7 +505,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
 
   - name: cosine_similarity
     route_prefix: /cosine_similarity
@@ -506,7 +518,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           runtime_env:
             uv:
@@ -523,7 +535,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
   - name: whisper
     route_prefix: /whisper
     import_path: inference_ray.main:app_builder
@@ -536,8 +548,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 2147483648  # ~2Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - librosa==0.10.1
@@ -558,8 +571,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -581,8 +595,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -605,8 +620,9 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
-
+          max_replicas: 2
+        ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           runtime_env:
             uv:
               - scikit-learn==1.4.0
@@ -626,7 +642,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
 
           runtime_env:
             uv:
@@ -641,7 +657,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
 
           runtime_env:
             uv:
@@ -657,7 +673,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           num_cpus: 2
           runtime_env:
@@ -673,7 +689,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           num_cpus: 2
 
@@ -687,7 +703,7 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 20
+          max_replicas: 6
         ray_actor_options:
           num_cpus: 2
 
@@ -756,6 +772,8 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 1
+        ray_actor_options:
+          memory: 2147483648  # ~2Gi reserved so Ray won't overcommit this node's memory
 
   - name: face_tracking
     route_prefix: /face_tracking
@@ -786,6 +804,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -804,6 +823,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -822,6 +842,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -840,6 +861,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 2684354560  # ~2.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -861,6 +883,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -881,6 +904,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -901,6 +925,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -924,6 +949,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -943,6 +969,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -960,6 +987,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1073741824  # ~1Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -976,6 +1004,7 @@ applications:
         autoscaling_config:
           min_replicas: 0
         ray_actor_options:
+          memory: 1610612736  # ~1.5Gi reserved so Ray won't overcommit this node's memory
           num_cpus: 2
           runtime_env:
             uv:
@@ -999,6 +1028,8 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
+        ray_actor_options:
+          memory: 2684354560  # ~2.5Gi reserved so Ray won't overcommit this node's memory
   - name: movie_pattern_intensify
     route_prefix: /movie_pattern_intensify
     import_path: inference_ray.main:app_builder

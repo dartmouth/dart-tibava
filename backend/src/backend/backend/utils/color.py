@@ -1,3 +1,4 @@
+import hashlib
 import random
 import numpy as np
 import numpy.typing as npt
@@ -112,7 +113,9 @@ def get_color_from_label(label: str) -> str:
     Returns:
         str: RGB Hex color
     """
-    code = str(hash(label) % (10**6))
+    # Stable across processes (builtin hash() is salted) and always 6 digits.
+    digest = int(hashlib.md5(label.encode("utf-8")).hexdigest(), 16)
+    code = f"{digest % 10**6:06d}"
     r = float(code[0:2]) / 200 + 0.5
     g = float(code[2:4]) / 200 + 0.5
     b = float(code[4:6]) / 200 + 0.5
