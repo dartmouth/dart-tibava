@@ -12,7 +12,9 @@ from tibava_data import DataManager, Data
 
 from typing import Callable, Dict
 
+import ctypes
 import logging
+import os
 import time
 
 import numpy as np
@@ -41,6 +43,19 @@ CONTEXT = 25
 LOG_EVERY_WINDOWS = 200
 
 MB = 1024 * 1024
+
+# Off-by-default switches for diagnosing the memory growth seen on k8s (see
+# the k8s OOM investigation). With neither set, behavior is unchanged.
+#   TRANSNET_LONG_DECODER_THREADS=<n>  cap the video decoder's threads (imageio
+#                                      defaults to one per visible CPU)
+#   TRANSNET_LONG_MALLOC_TRIM=1        malloc_trim(0) at each periodic log and
+#                                      log RSS before/after, to tell allocator
+#                                      fragmentation from a real leak
+DECODER_THREADS_ENV = "TRANSNET_LONG_DECODER_THREADS"
+MALLOC_TRIM_ENV = "TRANSNET_LONG_MALLOC_TRIM"
+
+# snapshot entries that are counts, not bytes
+COUNT_KEYS = {"threads"}
 
 
 def _read_kv(path):
@@ -79,6 +94,13 @@ def memory_snapshot() -> Dict[str, int]:
         snap["rss"] = status["VmRSS"]
     if "VmHWM" in status:
         snap["peak_rss"] = status["VmHWM"]
+    # heap/native vs file-backed (mmap) parts of the RSS, and thread count
+    if "RssAnon" in status:
+        snap["rss_anon"] = status["RssAnon"]
+    if "RssFile" in status:
+        snap["rss_file"] = status["RssFile"]
+    if "Threads" in status:
+        snap["threads"] = status["Threads"]
 
     # cgroup v2, then v1
     used = _read_int("/sys/fs/cgroup/memory.current")
@@ -99,11 +121,9 @@ def memory_snapshot() -> Dict[str, int]:
     return snap
 
 
-def top_processes(n: int = 6) -> str:
+def top_processes(n: int = 10) -> str:
     """The n processes with the largest RSS in this container, one line, for
     finding what else is using memory (e.g. other Ray replicas). Never raises."""
-    import os
-
     procs = []
     try:
         pids = [d for d in os.listdir("/proc") if d.isdigit()]
@@ -116,15 +136,48 @@ def top_processes(n: int = 6) -> str:
                 continue
             with open(f"/proc/{pid}/cmdline", "rb") as f:
                 cmd = f.read().replace(b"\0", b" ").decode(errors="replace").strip()
-            procs.append((rss, pid, cmd[:60]))
+            procs.append((rss, pid, cmd[:45]))
         except OSError:
             continue  # process exited while scanning
     procs.sort(reverse=True)
-    return "; ".join(f"{pid}:{rss / MB:.0f}MB {cmd}" for rss, pid, cmd in procs[:n]) or "unavailable"
+    return (
+        "; ".join(f"{pid}:{rss / MB:.0f}MB {cmd}" for rss, pid, cmd in procs[:n])
+        or "unavailable"
+    )
 
 
 def format_memory(snap: Dict[str, int]) -> str:
-    return " ".join(f"{k}={v / MB:.0f}MB" for k, v in snap.items()) or "unavailable"
+    return (
+        " ".join(
+            f"{k}={v}" if k in COUNT_KEYS else f"{k}={v / MB:.0f}MB"
+            for k, v in snap.items()
+        )
+        or "unavailable"
+    )
+
+
+def decoder_kwargs() -> Dict[str, int]:
+    """Extra VideoDecoder/imageio arguments from the environment (see above)."""
+    raw = os.environ.get(DECODER_THREADS_ENV)
+    if not raw:
+        return {}
+    try:
+        return {"thread_count": int(raw)}
+    except ValueError:
+        logger.warning("ignoring invalid %s=%r", DECODER_THREADS_ENV, raw)
+        return {}
+
+
+def malloc_trim_enabled() -> bool:
+    return os.environ.get(MALLOC_TRIM_ENV) == "1"
+
+
+def malloc_trim() -> bool:
+    """Ask glibc to return free heap pages to the OS. False if unavailable."""
+    try:
+        return bool(ctypes.CDLL("libc.so.6").malloc_trim(0))
+    except (OSError, AttributeError):
+        return False
 
 
 @AnalyserPluginManager.export("transnet_shotdetection_long")
@@ -168,6 +221,14 @@ class TransnetShotdetectionLong(
             format_memory(memory_snapshot()),
         )
         logger.info("[transnet_shotdetection_long] top processes: %s", top_processes())
+        logger.info(
+            "[transnet_shotdetection_long] cpus visible=%d affinity=%d "
+            "decoder_overrides=%s malloc_trim=%s",
+            os.cpu_count() or 0,
+            len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else 0,
+            decoder_kwargs() or "none (imageio default)",
+            malloc_trim_enabled(),
+        )
 
         def drain():
             # Run the model on every full window currently in the buffer.
@@ -190,6 +251,13 @@ class TransnetShotdetectionLong(
                     logger.info(
                         "[transnet_shotdetection_long] top processes: %s", top_processes()
                     )
+                    if malloc_trim_enabled():
+                        freed = malloc_trim()
+                        logger.info(
+                            "[transnet_shotdetection_long] after malloc_trim(%s): %s",
+                            freed,
+                            format_memory(memory_snapshot()),
+                        )
 
         for frame in frames:
             if n_frames == 0:
@@ -259,6 +327,7 @@ class TransnetShotdetectionLong(
                     path=f_video,
                     max_dimension=[48, 27],
                     extension=f".{input_data.ext}",
+                    **decoder_kwargs(),
                 )
                 total_frames_estimate = max(
                     video_decoder.duration() * video_decoder.fps(), 1

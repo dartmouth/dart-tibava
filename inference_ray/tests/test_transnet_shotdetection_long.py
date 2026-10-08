@@ -98,3 +98,43 @@ def test_top_processes_lists_this_process():
 
     out = top_processes(n=1000)
     assert f"{os.getpid()}:" in out
+
+
+def test_snapshot_format_and_experiment_switches(monkeypatch):
+    from inference_ray.plugins import transnet_shotdetection_long as mod
+
+    snap = mod.memory_snapshot()
+    assert snap["threads"] >= 1 and "rss_anon" in snap
+    # thread counts are not megabytes
+    assert f"threads={snap['threads']} " in mod.format_memory(snap) + " "
+    assert "threads=0MB" not in mod.format_memory({"threads": 0})
+
+    monkeypatch.delenv(mod.DECODER_THREADS_ENV, raising=False)
+    assert mod.decoder_kwargs() == {}
+    monkeypatch.setenv(mod.DECODER_THREADS_ENV, "3")
+    assert mod.decoder_kwargs() == {"thread_count": 3}
+    monkeypatch.setenv(mod.DECODER_THREADS_ENV, "many")
+    assert mod.decoder_kwargs() == {}
+
+    monkeypatch.delenv(mod.MALLOC_TRIM_ENV, raising=False)
+    assert not mod.malloc_trim_enabled()
+    monkeypatch.setenv(mod.MALLOC_TRIM_ENV, "1")
+    assert mod.malloc_trim_enabled()
+    assert isinstance(mod.malloc_trim(), bool)
+
+
+def test_stream_logs_with_trim_enabled(monkeypatch, caplog):
+    import logging
+
+    from inference_ray.plugins import transnet_shotdetection_long as mod
+
+    monkeypatch.setenv(mod.MALLOC_TRIM_ENV, "1")
+    monkeypatch.setattr(mod, "LOG_EVERY_WINDOWS", 2)
+    logging.getLogger("ray.serve").propagate = True
+    with caplog.at_level(logging.INFO, logger="ray.serve"):
+        out = _plugin(TransnetShotdetectionLong)._predict_stream(
+            iter(_video(400)), 400, None
+        )
+    assert out.shape == (400,)
+    text = caplog.text
+    assert "cpus visible=" in text and "after malloc_trim" in text
