@@ -67,3 +67,25 @@ def test_decoder_yields_height_27_width_48_frames(tmp_path):
 
     frame = next(iter(VideoDecoder(path=str(path), max_dimension=[48, 27])))["frame"]
     assert frame.shape == (27, 48, 3)
+
+
+def test_memory_snapshot_reports_rss_and_tolerates_missing_cgroup(monkeypatch):
+    import builtins
+
+    from inference_ray.plugins import transnet_shotdetection_long as mod
+
+    real_open = builtins.open
+
+    def no_cgroup(path, *args, **kwargs):
+        if str(path).startswith("/sys/fs/cgroup"):
+            raise FileNotFoundError(path)
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", no_cgroup)
+    snap = mod.memory_snapshot()
+
+    assert snap["rss"] > 0
+    assert snap["peak_rss"] >= snap["rss"]
+    assert not any(k.startswith("cgroup") for k in snap)
+    assert "rss=" in mod.format_memory(snap)
+    assert mod.format_memory({}) == "unavailable"

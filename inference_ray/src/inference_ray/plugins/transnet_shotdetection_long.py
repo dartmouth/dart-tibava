@@ -12,7 +12,14 @@ from tibava_data import DataManager, Data
 
 from typing import Callable, Dict
 
+import logging
+import time
+
 import numpy as np
+
+# "ray.serve" is configured by Serve to write to the replica log file; the root
+# logger would drop INFO.
+logger = logging.getLogger("ray.serve")
 
 default_config = {
     "data_dir": "/data/",
@@ -29,6 +36,71 @@ default_config = {
 WINDOW = 100
 STRIDE = 50
 CONTEXT = 25
+
+# Log memory every this many model windows (~10k frames).
+LOG_EVERY_WINDOWS = 200
+
+MB = 1024 * 1024
+
+
+def _read_kv(path):
+    """Parse a `key value` per line file such as /proc/self/status or memory.stat."""
+    out = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                parts = line.replace(":", " ").split()
+                if len(parts) >= 2 and parts[1].isdigit():
+                    # /proc/self/status reports kB, cgroup files bytes
+                    out[parts[0]] = int(parts[1]) * (1024 if len(parts) > 2 else 1)
+    except OSError:
+        pass
+    return out
+
+
+def _read_int(path):
+    try:
+        with open(path) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def memory_snapshot() -> Dict[str, int]:
+    """Memory figures in bytes, for diagnosing OOMs. Never raises; figures that
+    are unavailable (non-Linux, other cgroup layout) are omitted.
+
+    rss / peak_rss: this process. cgroup_*: the whole container, which is what
+    the Ray memory monitor compares against its threshold; cgroup_file is page
+    cache, cgroup_anon is heap/native allocations."""
+    snap = {}
+    status = _read_kv("/proc/self/status")
+    if "VmRSS" in status:
+        snap["rss"] = status["VmRSS"]
+    if "VmHWM" in status:
+        snap["peak_rss"] = status["VmHWM"]
+
+    # cgroup v2, then v1
+    used = _read_int("/sys/fs/cgroup/memory.current")
+    if used is not None:
+        stat = _read_kv("/sys/fs/cgroup/memory.stat")
+        names = {"anon": "cgroup_anon", "file": "cgroup_file"}
+        stat_path = "/sys/fs/cgroup/memory.stat"
+    else:
+        used = _read_int("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+        stat_path = "/sys/fs/cgroup/memory/memory.stat"
+        names = {"rss": "cgroup_anon", "cache": "cgroup_file"}
+    if used is not None:
+        snap["cgroup_used"] = used
+        stat = _read_kv(stat_path)
+        for key, name in names.items():
+            if key in stat:
+                snap[name] = stat[key]
+    return snap
+
+
+def format_memory(snap: Dict[str, int]) -> str:
+    return " ".join(f"{k}={v / MB:.0f}MB" for k, v in snap.items()) or "unavailable"
 
 
 @AnalyserPluginManager.export("transnet_shotdetection_long")
@@ -65,6 +137,12 @@ class TransnetShotdetectionLong(
         predictions = []
         n_frames = 0
         last_frame = None
+        start = time.monotonic()
+        logger.info(
+            "[transnet_shotdetection_long] stream start, ~%d frames expected, %s",
+            total_frames_estimate,
+            format_memory(memory_snapshot()),
+        )
 
         def drain():
             # Run the model on every full window currently in the buffer.
@@ -73,6 +151,17 @@ class TransnetShotdetectionLong(
                 del buffer[:STRIDE]
                 progress = min(len(predictions) * STRIDE / total_frames_estimate, 0.99)
                 self.update_callbacks(callbacks, progress=progress)
+                if len(predictions) % LOG_EVERY_WINDOWS == 0:
+                    elapsed = time.monotonic() - start
+                    logger.info(
+                        "[transnet_shotdetection_long] frames=%d windows=%d "
+                        "elapsed=%.0fs (%.1f frames/s) %s",
+                        n_frames,
+                        len(predictions),
+                        elapsed,
+                        n_frames / max(elapsed, 1e-9),
+                        format_memory(memory_snapshot()),
+                    )
 
         for frame in frames:
             if n_frames == 0:
@@ -92,6 +181,15 @@ class TransnetShotdetectionLong(
         buffer.extend([last_frame] * no_padded_frames_end)
         drain()
 
+        elapsed = time.monotonic() - start
+        logger.info(
+            "[transnet_shotdetection_long] stream done, frames=%d windows=%d "
+            "elapsed=%.0fs %s",
+            n_frames,
+            len(predictions),
+            elapsed,
+            format_memory(memory_snapshot()),
+        )
         return np.concatenate(predictions)[:n_frames]
 
     def call(
@@ -110,6 +208,11 @@ class TransnetShotdetectionLong(
                 self.model_path, map_location=torch.device(device)
             )
             self.device = device
+            logger.info(
+                "[transnet_shotdetection_long] model loaded on %s, %s",
+                device,
+                format_memory(memory_snapshot()),
+            )
 
         self.update_callbacks(callbacks, progress=0.0)
         with (
@@ -130,6 +233,13 @@ class TransnetShotdetectionLong(
                 )
                 total_frames_estimate = max(
                     video_decoder.duration() * video_decoder.fps(), 1
+                )
+                logger.info(
+                    "[transnet_shotdetection_long] video %sx%s fps=%.3f duration=%.0fs, %s",
+                    *video_decoder._size,
+                    video_decoder.fps(),
+                    video_decoder.duration(),
+                    format_memory(memory_snapshot()),
                 )
 
                 prediction = self._predict_stream(
