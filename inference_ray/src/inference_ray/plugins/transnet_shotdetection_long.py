@@ -99,6 +99,30 @@ def memory_snapshot() -> Dict[str, int]:
     return snap
 
 
+def top_processes(n: int = 6) -> str:
+    """The n processes with the largest RSS in this container, one line, for
+    finding what else is using memory (e.g. other Ray replicas). Never raises."""
+    import os
+
+    procs = []
+    try:
+        pids = [d for d in os.listdir("/proc") if d.isdigit()]
+    except OSError:
+        return "unavailable"
+    for pid in pids:
+        try:
+            rss = _read_kv(f"/proc/{pid}/status").get("VmRSS")
+            if rss is None:
+                continue
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                cmd = f.read().replace(b"\0", b" ").decode(errors="replace").strip()
+            procs.append((rss, pid, cmd[:60]))
+        except OSError:
+            continue  # process exited while scanning
+    procs.sort(reverse=True)
+    return "; ".join(f"{pid}:{rss / MB:.0f}MB {cmd}" for rss, pid, cmd in procs[:n]) or "unavailable"
+
+
 def format_memory(snap: Dict[str, int]) -> str:
     return " ".join(f"{k}={v / MB:.0f}MB" for k, v in snap.items()) or "unavailable"
 
@@ -143,6 +167,7 @@ class TransnetShotdetectionLong(
             total_frames_estimate,
             format_memory(memory_snapshot()),
         )
+        logger.info("[transnet_shotdetection_long] top processes: %s", top_processes())
 
         def drain():
             # Run the model on every full window currently in the buffer.
@@ -161,6 +186,9 @@ class TransnetShotdetectionLong(
                         elapsed,
                         n_frames / max(elapsed, 1e-9),
                         format_memory(memory_snapshot()),
+                    )
+                    logger.info(
+                        "[transnet_shotdetection_long] top processes: %s", top_processes()
                     )
 
         for frame in frames:
@@ -190,6 +218,7 @@ class TransnetShotdetectionLong(
             elapsed,
             format_memory(memory_snapshot()),
         )
+        logger.info("[transnet_shotdetection_long] top processes: %s", top_processes())
         return np.concatenate(predictions)[:n_frames]
 
     def call(
