@@ -1137,6 +1137,34 @@ export default {
               ],
             },
             {
+              name: this.$t("modal.plugin.shot_detection_long.plugin_name"),
+              description: this.$t(
+                "modal.plugin.shot_detection_long.plugin_description"
+              ),
+              icon: "mdi-arrow-expand-horizontal",
+              plugin: "shotdetection_long",
+              id: 510,
+              parameters: [
+                {
+                  field: "text_field",
+                  name: "timeline",
+                  value: this.$t("modal.plugin.shot_detection_long.timeline_name"),
+                  text: this.$t("modal.plugin.timeline_name"),
+                },
+              ],
+              optional_parameters: [
+                {
+                  field: "slider",
+                  min: 1,
+                  max: 10,
+                  value: 2,
+                  step: 1,
+                  name: "fps",
+                  text: this.$t("modal.plugin.fps"),
+                },
+              ],
+            },
+            {
               name: this.$t("modal.plugin.shot_density.plugin_name"),
               description: this.$t(
                 "modal.plugin.shot_density.plugin_description"
