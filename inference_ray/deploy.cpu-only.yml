@@ -471,10 +471,14 @@ applications:
     deployments:
       - name: Deployment
         # Holds the whole video in memory (~3.4GB observed on a long film), so
-        # reserve that and never run two at once. Use transnet_shotdetection_long
-        # for long videos.
+        # reserve most of the node and never run two at once. Use
+        # transnet_shotdetection_long for long videos.
+        # This is only a scheduling number and must stay below the node's Ray
+        # "memory" total, which Ray derives from the container limit (~3.58e9 on
+        # the 8Gi k8s pod). A larger request (3.5GiB was tried) can never be
+        # scheduled and the replica stays pending forever.
         ray_actor_options:
-          memory: 3758096384  # 3.5GiB
+          memory: 3221225472  # 3GiB
         autoscaling_config:
           min_replicas: 0
           max_replicas: 1
