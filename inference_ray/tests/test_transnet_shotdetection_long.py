@@ -89,3 +89,12 @@ def test_memory_snapshot_reports_rss_and_tolerates_missing_cgroup(monkeypatch):
     assert not any(k.startswith("cgroup") for k in snap)
     assert "rss=" in mod.format_memory(snap)
     assert mod.format_memory({}) == "unavailable"
+
+
+def test_top_processes_lists_this_process():
+    import os
+
+    from inference_ray.plugins.transnet_shotdetection_long import top_processes
+
+    out = top_processes(n=1000)
+    assert f"{os.getpid()}:" in out
