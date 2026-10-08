@@ -190,6 +190,9 @@ export default {
       if (type === "shotdetection") {
         return this.$t("modal.plugin.shot_detection.plugin_name");
       }
+      if (type === "shotdetection_long") {
+        return this.$t("modal.plugin.shot_detection_long.plugin_name");
+      }
       if (type === "shot_density") {
         return this.$t("modal.plugin.shot_density.plugin_name");
       }

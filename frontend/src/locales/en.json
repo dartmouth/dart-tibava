@@ -403,6 +403,11 @@
         "plugin_description": "This plugin automatically detects shot boundaries within the video using a deep learning model. You can create or merge cuts by right-clicking on the resulting timeline.",
         "timeline_name": "Shots"
       },
+      "shot_detection_long": {
+        "plugin_name": "Shot Boundary Detection (long videos)",
+        "plugin_description": "This plugin detects shot boundaries with the same deep learning model as \"Shot Boundary Detection\", but processes the video as a stream, using the standard TransNetV2 frame preprocessing, so that memory use stays flat for feature-length films. Use it for long videos where the standard plugin runs out of memory. Detected boundaries can differ slightly from \"Shot Boundary Detection\".",
+        "timeline_name": "Shots"
+      },
       "shot_density": {
         "plugin_name": "Shot Density",
         "plugin_description": "This plugin predicts the density of the shots within a video. In this way, you can differentiate between slow and fast-paced scenes. The computation is performed based on a selected timeline, e.g., the timeline that is created by the \"Shot Boundary Detection\" plugin.",

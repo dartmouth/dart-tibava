@@ -11,6 +11,7 @@ from .places_classification import *
 from .shot_density import *
 from .shot_type_classification import *
 from .shotdetection import *
+from .shotdetection_long import *
 from .shot_angle import *
 from .shot_level import *
 from .shot_scale_and_movement import *

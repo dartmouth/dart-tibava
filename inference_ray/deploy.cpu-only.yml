@@ -470,15 +470,37 @@ applications:
         model_path: /models/transnet_shotdetection/transnet.pt
     deployments:
       - name: Deployment
+        # Holds the whole video in memory (~3.4GB observed on a long film), so
+        # reserve that and never run two at once. Use transnet_shotdetection_long
+        # for long videos.
+        ray_actor_options:
+          memory: 3758096384  # 3.5GiB
         autoscaling_config:
           min_replicas: 0
-          max_replicas: 2
+          max_replicas: 1
 
           # NOTE: this runtime_env sits under autoscaling_config, so Ray never applied it.
           # Reactivating it (under ray_actor_options) needs a numpy pin and per-app testing.
           #runtime_env:
           #  uv:
           #    - torch==2.2.0
+
+  # Streams the video through the model, so memory stays flat regardless of length.
+  - name: transnet_shotdetection_long
+    route_prefix: /transnet_shotdetection_long
+    import_path: inference_ray.main:app_builder
+    args:
+      model: transnet_shotdetection_long
+      data_path: /data
+      params:
+        model_path: /models/transnet_shotdetection/transnet.pt
+    deployments:
+      - name: Deployment
+        ray_actor_options:
+          memory: 1610612736  # 1.5GiB, estimate: torch + model, to be confirmed by measurement
+        autoscaling_config:
+          min_replicas: 0
+          max_replicas: 1
 
   - name: video_to_video
     route_prefix: /video_to_video
