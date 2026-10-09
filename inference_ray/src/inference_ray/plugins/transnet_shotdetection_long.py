@@ -189,7 +189,7 @@ class TransnetShotdetectionLong(
     TransnetShotdetection,
     config=default_config,
     parameters=default_parameters,
-    version="0.1",
+    version="0.1-memory-suite",  # experiment branch only: keeps cache keys apart
     requires=requires,
     provides=provides,
 ):
@@ -304,6 +304,12 @@ class TransnetShotdetectionLong(
         parameters: Dict = None,
         callbacks: Callable = None,
     ) -> Dict[str, Data]:
+        # TEMPORARY (experiment branch): fps slider 8/9/10 runs the memory suite.
+        from inference_ray.plugins import transnet_shotdetection_long_experiment as exp
+
+        if exp.experiment_requested(parameters):
+            return exp.run_suite(self, inputs, data_manager, callbacks)
+
         import torch
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
