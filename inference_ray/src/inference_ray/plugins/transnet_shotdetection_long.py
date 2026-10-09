@@ -122,8 +122,11 @@ def memory_snapshot() -> Dict[str, int]:
 
 
 def top_processes(n: int = 10) -> str:
-    """The n processes with the largest RSS in this container, one line, for
-    finding what else is using memory (e.g. other Ray replicas). Never raises."""
+    """The n processes with the largest anonymous (heap/native) memory in this
+    container, plus the process count and the total anon over all of them, for
+    finding what else is using memory (e.g. Ray dashboard processes). Ranked by
+    RssAnon because RSS double-counts shared libraries and file pages. Never
+    raises."""
     procs = []
     try:
         pids = [d for d in os.listdir("/proc") if d.isdigit()]
@@ -131,19 +134,20 @@ def top_processes(n: int = 10) -> str:
         return "unavailable"
     for pid in pids:
         try:
-            rss = _read_kv(f"/proc/{pid}/status").get("VmRSS")
-            if rss is None:
+            anon = _read_kv(f"/proc/{pid}/status").get("RssAnon")
+            if anon is None:
                 continue
             with open(f"/proc/{pid}/cmdline", "rb") as f:
                 cmd = f.read().replace(b"\0", b" ").decode(errors="replace").strip()
-            procs.append((rss, pid, cmd[:45]))
+            procs.append((anon, pid, cmd[:45]))
         except OSError:
             continue  # process exited while scanning
+    if not procs:
+        return "unavailable"
     procs.sort(reverse=True)
-    return (
-        "; ".join(f"{pid}:{rss / MB:.0f}MB {cmd}" for rss, pid, cmd in procs[:n])
-        or "unavailable"
-    )
+    total = sum(anon for anon, _, _ in procs)
+    top = "; ".join(f"{pid}:{anon / MB:.0f}MB {cmd}" for anon, pid, cmd in procs[:n])
+    return f"{len(procs)} processes, total anon {total / MB:.0f}MB. top by anon: {top}"
 
 
 def format_memory(snap: Dict[str, int]) -> str:
@@ -223,11 +227,15 @@ class TransnetShotdetectionLong(
         logger.info("[transnet_shotdetection_long] top processes: %s", top_processes())
         logger.info(
             "[transnet_shotdetection_long] cpus visible=%d affinity=%d "
-            "decoder_overrides=%s malloc_trim=%s",
+            "decoder_overrides=%s malloc_trim=%s env: %s",
             os.cpu_count() or 0,
             len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else 0,
             decoder_kwargs() or "none (imageio default)",
             malloc_trim_enabled(),
+            {
+                k: os.environ.get(k)
+                for k in (DECODER_THREADS_ENV, MALLOC_TRIM_ENV, "MALLOC_ARENA_MAX")
+            },
         )
 
         def drain():

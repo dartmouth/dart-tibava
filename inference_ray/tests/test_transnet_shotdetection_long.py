@@ -98,6 +98,7 @@ def test_top_processes_lists_this_process():
 
     out = top_processes(n=1000)
     assert f"{os.getpid()}:" in out
+    assert "processes, total anon" in out
 
 
 def test_snapshot_format_and_experiment_switches(monkeypatch):
