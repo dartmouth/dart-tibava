@@ -189,7 +189,7 @@ class TransnetShotdetectionLong(
     TransnetShotdetection,
     config=default_config,
     parameters=default_parameters,
-    version="0.1-memory-suite",  # experiment branch only: keeps cache keys apart
+    version="0.2-memory-suite",  # experiment branch only: keeps cache keys apart
     requires=requires,
     provides=provides,
 ):

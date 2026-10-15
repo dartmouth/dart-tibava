@@ -1,6 +1,9 @@
 import contextlib
 import logging
+import os
 import sys
+import types
+import zipfile
 
 import pytest
 
@@ -32,8 +35,7 @@ class _Ctx(contextlib.AbstractContextManager):
     def __exit__(self, *exc):
         return False
 
-    def open_video(self):
-        return contextlib.nullcontext("/fake/video.mp4")
+    fs = types.SimpleNamespace(path="/fake/data.zip")
 
 
 class _Plugin:
@@ -78,8 +80,47 @@ def test_run_suite_forwards_child_output_and_isolates_env(monkeypatch, caplog):
     text = caplog.text
     assert "[experiment a] arena None" in text
     assert "[experiment b] arena 2" in text
-    assert "[experiment a] args /fake/video.mp4 mp4 /fake/model.pt 100" in text
-    assert "[experiment b] args /fake/video.mp4 mp4 /fake/model.pt None" in text
+    assert "[experiment a] args /fake/data.zip video.mp4 /fake/model.pt 100" in text
+    assert "[experiment b] args /fake/data.zip video.mp4 /fake/model.pt None" in text
     assert text.count("exit code 0") == 2
     assert plugin.progress == [0.0, 0.5, 1.0]
     assert out["shots"].shots == []
+
+
+def test_run_suite_raises_when_a_child_fails():
+    def failing(video, ext, model, max_frames):
+        return [sys.executable, "-c", "raise SystemExit(1)"]
+
+    with pytest.raises(RuntimeError, match="bad"):
+        exp.run_suite(
+            _Plugin(),
+            {"video": _Ctx(ext="mp4")},
+            _DataManager(),
+            None,
+            configs=[("bad", {}, 1)],
+            command_builder=failing,
+        )
+
+
+SAMPLE = "/home/claude/paris_clip.mp4"
+
+
+@pytest.mark.skipif(not os.path.exists(SAMPLE), reason="sample video missing")
+def test_child_main_reads_video_from_zip_member(tmp_path):
+    torch = pytest.importorskip("torch")
+    zip_path = tmp_path / "data.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_STORED) as zf:
+        zf.write(SAMPLE, "video.mp4")
+    seen = []
+
+    class FakeModel:
+        pass
+
+    def fake_predict(self, frames, total, callbacks):
+        seen.append(sum(1 for _ in frames))
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(torch.jit, "load", lambda *a, **k: FakeModel())
+        mp.setattr(exp.TransnetShotdetectionLong, "_predict_stream", fake_predict)
+        exp.child_main(str(zip_path), "video.mp4", "/fake/model.pt", 50)
+    assert seen == [50]

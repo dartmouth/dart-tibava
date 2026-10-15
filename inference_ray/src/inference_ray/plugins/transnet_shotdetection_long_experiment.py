@@ -14,7 +14,9 @@ bumped on this branch so these empty results never collide with real ones.
 No shots are produced in this mode.
 
 Child entry point: `python -m inference_ray.plugins.transnet_shotdetection_long_experiment
-<video path> <extension> <model path> <max frames or 0>`.
+<zip path> <member name> <model path> <max frames or 0>`. The video lives inside a
+zip, so the child opens the member itself and hands the resulting file object to
+VideoDecoder, the same read path as the real plugin.
 """
 
 import itertools
@@ -23,6 +25,7 @@ import os
 import subprocess
 import sys
 import time
+import zipfile
 from typing import Dict, List, Optional, Tuple
 
 from inference_ray.plugins.transnet_shotdetection_long import (
@@ -71,14 +74,14 @@ def experiment_requested(parameters: Optional[Dict]) -> bool:
         return False
 
 
-def child_command(video_path: str, ext: str, model_path: str, max_frames) -> List[str]:
+def child_command(zip_path: str, member: str, model_path: str, max_frames) -> List[str]:
     return [
         sys.executable,
         "-u",
         "-m",
         __name__,
-        str(video_path),
-        ext,
+        str(zip_path),
+        member,
         str(model_path),
         str(max_frames or 0),
     ]
@@ -134,26 +137,32 @@ def run_suite(
         inputs["video"] as input_data,
         data_manager.create_data("ShotsData") as output_data,
     ):
-        with input_data.open_video() as f_video:
-            logger.info(
-                "[experiment] suite of %d configs on %s: %s",
-                len(configs),
-                input_data.ext,
-                [name for name, _, _ in configs],
+        zip_path = input_data.fs.path
+        member = f"video.{input_data.ext}"
+        logger.info(
+            "[experiment] suite of %d configs on %s: %s",
+            len(configs),
+            member,
+            [name for name, _, _ in configs],
+        )
+        failed = []
+        for i, (name, overrides, max_frames) in enumerate(configs):
+            code = run_config(
+                name,
+                command_builder(zip_path, member, plugin.model_path, max_frames),
+                child_env(overrides),
             )
-            for i, (name, overrides, max_frames) in enumerate(configs):
-                run_config(
-                    name,
-                    command_builder(f_video, input_data.ext, plugin.model_path, max_frames),
-                    child_env(overrides),
-                )
-                plugin.update_callbacks(callbacks, progress=(i + 1) / len(configs))
-            logger.info("[experiment] suite done, container: %s", format_memory(memory_snapshot()))
+            if code != 0:
+                failed.append(name)
+            plugin.update_callbacks(callbacks, progress=(i + 1) / len(configs))
+        logger.info("[experiment] suite done, container: %s", format_memory(memory_snapshot()))
+        if failed:
+            raise RuntimeError(f"experiment configs failed: {failed}")
         output_data.shots = []
         return {"shots": output_data}
 
 
-def child_main(video_path: str, ext: str, model_path: str, max_frames: int) -> None:
+def child_main(zip_path: str, member: str, model_path: str, max_frames: int) -> None:
     """One configuration: load the model, decode (optionally the first
     `max_frames` frames) and stream it through the model, logging memory the
     same way the plugin does."""
@@ -171,18 +180,19 @@ def child_main(video_path: str, ext: str, model_path: str, max_frames: int) -> N
     plugin.model = torch.jit.load(model_path, map_location=torch.device("cpu"))
     logger.info("model loaded, %s", format_memory(memory_snapshot()))
 
-    decoder = VideoDecoder(
-        path=video_path,
-        max_dimension=[48, 27],
-        extension=f".{ext}",
-        **decoder_kwargs(),
-    )
-    frames = (x.get("frame") for x in decoder)
-    total = max(decoder.duration() * decoder.fps(), 1)
-    if max_frames:
-        frames = itertools.islice(frames, max_frames)
-        total = max_frames
-    plugin._predict_stream(frames, total, None)
+    with zipfile.ZipFile(zip_path) as zf, zf.open(member) as f_video:
+        decoder = VideoDecoder(
+            path=f_video,
+            max_dimension=[48, 27],
+            extension=os.path.splitext(member)[1],
+            **decoder_kwargs(),
+        )
+        frames = (x.get("frame") for x in decoder)
+        total = max(decoder.duration() * decoder.fps(), 1)
+        if max_frames:
+            frames = itertools.islice(frames, max_frames)
+            total = max_frames
+        plugin._predict_stream(frames, total, None)
     logger.info("child done, %s", format_memory(memory_snapshot()))
     logger.info("child top processes: %s", top_processes())
 
