@@ -22,8 +22,10 @@ VideoDecoder, the same read path as the real plugin.
 import itertools
 import logging
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 from typing import Dict, List, Optional, Tuple
@@ -44,26 +46,23 @@ EXPERIMENT_FPS_VALUES = {8.0, 9.0, 10.0}
 
 # Environment switches the suite controls. They are removed from the child's
 # environment first, so a live edit left on the pod cannot colour a config.
-SWITCH_VARS = (DECODER_THREADS_ENV, MALLOC_TRIM_ENV, "MALLOC_ARENA_MAX")
+PLAINFILE_ENV = "TRANSNET_EXP_PLAINFILE"  # child extracts the member to a temp file first
+SWITCH_VARS = (DECODER_THREADS_ENV, MALLOC_TRIM_ENV, "MALLOC_ARENA_MAX", PLAINFILE_ENV)
 
-FRAMES = 20000  # about 10 minutes at the k8s decode rate
+# Round 2. Round 1 showed flat child memory over the first 20k frames but steady
+# growth past it in a full run (anon 735MB at 20k -> 2001MB at 50k), with
+# MALLOC_ARENA_MAX/decoder threads making no clear difference. Growth shows by
+# ~30k frames, so 60k is enough to see the slope.
+FRAMES = 60000  # about 21 minutes at the k8s decode rate
 
 # (name, environment overrides, max frames or None for the whole video)
 CONFIGS: List[Tuple[str, Dict[str, str], Optional[int]]] = [
-    ("baseline", {}, FRAMES),
-    ("malloc_trim", {MALLOC_TRIM_ENV: "1"}, FRAMES),
-    (
-        "arena2_threads4",
-        {"MALLOC_ARENA_MAX": "2", DECODER_THREADS_ENV: "4"},
-        FRAMES,
-    ),
-    # the candidate mitigation over the whole video, to compare with the
-    # full-length baseline runs we already have
-    (
-        "arena2_threads4_full",
-        {"MALLOC_ARENA_MAX": "2", DECODER_THREADS_ENV: "4"},
-        None,
-    ),
+    # malloc_trim at every periodic log: if anon still climbs, it is a real
+    # leak (live native memory), not allocator fragmentation
+    ("full_trim", {MALLOC_TRIM_ENV: "1"}, FRAMES),
+    # video as a plain file instead of a ZipExtFile: if growth disappears, the
+    # Python file-object read path is the culprit
+    ("full_plainfile", {PLAINFILE_ENV: "1"}, FRAMES),
 ]
 
 
@@ -180,19 +179,31 @@ def child_main(zip_path: str, member: str, model_path: str, max_frames: int) -> 
     plugin.model = torch.jit.load(model_path, map_location=torch.device("cpu"))
     logger.info("model loaded, %s", format_memory(memory_snapshot()))
 
-    with zipfile.ZipFile(zip_path) as zf, zf.open(member) as f_video:
-        decoder = VideoDecoder(
-            path=f_video,
-            max_dimension=[48, 27],
-            extension=os.path.splitext(member)[1],
-            **decoder_kwargs(),
-        )
-        frames = (x.get("frame") for x in decoder)
-        total = max(decoder.duration() * decoder.fps(), 1)
-        if max_frames:
-            frames = itertools.islice(frames, max_frames)
-            total = max_frames
-        plugin._predict_stream(frames, total, None)
+    with tempfile.TemporaryDirectory() as tmp, zipfile.ZipFile(zip_path) as zf:
+        if os.environ.get(PLAINFILE_ENV) == "1":
+            video_path = os.path.join(tmp, "video" + os.path.splitext(member)[1])
+            with zf.open(member) as src, open(video_path, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+            logger.info("extracted member to plain file, %s", format_memory(memory_snapshot()))
+            f_video = video_path
+        else:
+            f_video = zf.open(member)
+        try:
+            decoder = VideoDecoder(
+                path=f_video,
+                max_dimension=[48, 27],
+                extension=os.path.splitext(member)[1],
+                **decoder_kwargs(),
+            )
+            frames = (x.get("frame") for x in decoder)
+            total = max(decoder.duration() * decoder.fps(), 1)
+            if max_frames:
+                frames = itertools.islice(frames, max_frames)
+                total = max_frames
+            plugin._predict_stream(frames, total, None)
+        finally:
+            if not isinstance(f_video, str):
+                f_video.close()
     logger.info("child done, %s", format_memory(memory_snapshot()))
     logger.info("child top processes: %s", top_processes())
 
