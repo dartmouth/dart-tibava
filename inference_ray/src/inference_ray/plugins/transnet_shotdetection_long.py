@@ -44,14 +44,13 @@ LOG_EVERY_WINDOWS = 200
 
 MB = 1024 * 1024
 
-# Off-by-default switches for diagnosing the memory growth seen on k8s (see
-# the k8s OOM investigation). With neither set, behavior is unchanged.
-#   TRANSNET_LONG_DECODER_THREADS=<n>  cap the video decoder's threads (imageio
-#                                      defaults to one per visible CPU)
-#   TRANSNET_LONG_MALLOC_TRIM=1        malloc_trim(0) at each periodic log and
-#                                      log RSS before/after, to tell allocator
-#                                      fragmentation from a real leak
-DECODER_THREADS_ENV = "TRANSNET_LONG_DECODER_THREADS"
+# The decoder's native threads leave freed memory in glibc arenas that is not
+# returned to the OS: on a long video the process's anon memory grew by 1-2GB
+# (and got the Ray replica OOM-killed on k8s), while its live memory stayed flat
+# at ~300MB. malloc_trim(0) gives that memory back at ~20-40ms per call with no
+# measurable throughput cost, so trim every this many model windows (~2.5k
+# frames). Set TRANSNET_LONG_MALLOC_TRIM=0 to turn it off.
+TRIM_EVERY_WINDOWS = 50
 MALLOC_TRIM_ENV = "TRANSNET_LONG_MALLOC_TRIM"
 
 # snapshot entries that are counts, not bytes
@@ -160,20 +159,8 @@ def format_memory(snap: Dict[str, int]) -> str:
     )
 
 
-def decoder_kwargs() -> Dict[str, int]:
-    """Extra VideoDecoder/imageio arguments from the environment (see above)."""
-    raw = os.environ.get(DECODER_THREADS_ENV)
-    if not raw:
-        return {}
-    try:
-        return {"thread_count": int(raw)}
-    except ValueError:
-        logger.warning("ignoring invalid %s=%r", DECODER_THREADS_ENV, raw)
-        return {}
-
-
 def malloc_trim_enabled() -> bool:
-    return os.environ.get(MALLOC_TRIM_ENV) == "1"
+    return os.environ.get(MALLOC_TRIM_ENV) != "0"
 
 
 def malloc_trim() -> bool:
@@ -227,15 +214,11 @@ class TransnetShotdetectionLong(
         logger.info("[transnet_shotdetection_long] top processes: %s", top_processes())
         logger.info(
             "[transnet_shotdetection_long] cpus visible=%d affinity=%d "
-            "decoder_overrides=%s malloc_trim=%s env: %s",
+            "malloc_trim every %d windows=%s",
             os.cpu_count() or 0,
             len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else 0,
-            decoder_kwargs() or "none (imageio default)",
+            TRIM_EVERY_WINDOWS,
             malloc_trim_enabled(),
-            {
-                k: os.environ.get(k)
-                for k in (DECODER_THREADS_ENV, MALLOC_TRIM_ENV, "MALLOC_ARENA_MAX")
-            },
         )
 
         def drain():
@@ -245,7 +228,8 @@ class TransnetShotdetectionLong(
                 del buffer[:STRIDE]
                 progress = min(len(predictions) * STRIDE / total_frames_estimate, 0.99)
                 self.update_callbacks(callbacks, progress=progress)
-                if len(predictions) % LOG_EVERY_WINDOWS == 0:
+                log_now = len(predictions) % LOG_EVERY_WINDOWS == 0
+                if log_now:
                     elapsed = time.monotonic() - start
                     logger.info(
                         "[transnet_shotdetection_long] frames=%d windows=%d "
@@ -259,8 +243,9 @@ class TransnetShotdetectionLong(
                     logger.info(
                         "[transnet_shotdetection_long] top processes: %s", top_processes()
                     )
-                    if malloc_trim_enabled():
-                        freed = malloc_trim()
+                if malloc_trim_enabled() and len(predictions) % TRIM_EVERY_WINDOWS == 0:
+                    freed = malloc_trim()
+                    if log_now:
                         logger.info(
                             "[transnet_shotdetection_long] after malloc_trim(%s): %s",
                             freed,
@@ -335,7 +320,6 @@ class TransnetShotdetectionLong(
                     path=f_video,
                     max_dimension=[48, 27],
                     extension=f".{input_data.ext}",
-                    **decoder_kwargs(),
                 )
                 total_frames_estimate = max(
                     video_decoder.duration() * video_decoder.fps(), 1
