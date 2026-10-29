@@ -15,4 +15,4 @@ dependencies = [
 members = ["packages/*", "analyser", "backend", "inference_ray"]
 
 [tool.uv]
-constraint-dependencies = ["anyio>=4.14.2"]
+constraint-dependencies = ["anyio>=4.14.2", "certifi>=2026.10.18", "pillow>=13.0.0"]
