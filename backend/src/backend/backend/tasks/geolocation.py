@@ -1,13 +1,14 @@
 import hashlib
-import io
 import json
 import logging
 import os
 import shutil
+import subprocess
+import tempfile
+import time
 from typing import Dict, List, Optional, Tuple
 
-import imageio
-import PIL.Image
+import imageio_ffmpeg
 
 from backend.models import (
     Annotation,
@@ -20,7 +21,7 @@ from backend.models import (
     Video,
 )
 from backend.plugin_manager import PluginManager
-from backend.utils import image_normalize, image_resize, media_path_to_video
+from backend.utils import media_path_to_video
 from backend.utils.color import get_color_from_label
 from backend.utils.llm_client import (
     GeolocationLLMClient,
@@ -36,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 MAX_FRAMES_PER_SHOT = 4
 MAX_FRAME_DIM = 1024
+FFMPEG_TIMEOUT_SECONDS = 300
 GEOLOCATION_CACHE_ROOT = "/predictions/geolocation"
 TRANSCRIPT_CONTEXT_PADDING_SECONDS = 10.0
 
@@ -71,40 +73,59 @@ def _sample_timestamps(start: float, end: float, fps: float, max_frames: int) ->
     return timestamps
 
 
-def _extract_shot_frames(video_path: str, shots_with_timestamps) -> Dict[str, List]:
-    # Single sequential pass over the video collecting every sampled frame,
-    # instead of seeking per-shot (slow/imprecise with ffmpeg-backed readers).
-    targets = sorted(
-        (
-            (timestamp, shot_id)
-            for shot_id, timestamps in shots_with_timestamps
-            for timestamp in timestamps
-        ),
-        key=lambda x: x[0],
+def _extract_shot_jpegs(
+    video_path: str, start: float, n_frames: int, fps: float, max_dim: int = MAX_FRAME_DIM
+) -> List[bytes]:
+    # One short ffmpeg run per shot, just before that shot's LLM call, instead
+    # of decoding the whole film up front: the old single pass piped every raw
+    # frame into Python and held all sampled frames in RAM, saturating the
+    # celery container's CPU long enough for its liveness probe to kill it.
+    # Input seeking (-ss before -i) only decodes from the preceding keyframe,
+    # ffmpeg resizes (longest side, never upscaled, like image_resize) and
+    # JPEG-encodes itself, and nice/-threads 1 leave CPU for the worker and
+    # the probe sharing the container.
+    if fps <= 0:
+        fps = 1.0
+    # First frame at or after each start + k/fps, like _sample_timestamps (the
+    # fps filter instead picks the frame up to half a step late).
+    select = f"select='gte(t\\,selected_n/{fps})'"
+    scale = (
+        f"scale=w='if(gte(iw,ih),min({max_dim},iw),-2)'"
+        f":h='if(gte(iw,ih),-2,min({max_dim},ih))'"
     )
+    with tempfile.TemporaryDirectory(dir="/tmp") as tmp_dir:
+        command = [
+            "nice", "-n", "10",
+            imageio_ffmpeg.get_ffmpeg_exe(),
+            "-nostdin", "-loglevel", "error", "-threads", "1",
+            "-ss", f"{start:.3f}",
+            "-i", video_path,
+            "-t", f"{n_frames / fps:.3f}",
+            "-an", "-sn",
+            "-vf", f"{select},{scale}",
+            "-fps_mode", "passthrough",
+            "-frames:v", str(n_frames),
+            "-q:v", "4",
+            os.path.join(tmp_dir, "%02d.jpg"),
+        ]
+        try:
+            subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                timeout=FFMPEG_TIMEOUT_SECONDS,
+            )
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(
+                f"ffmpeg frame extraction failed at {start:.3f}s: "
+                f"{e.stderr.decode(errors='replace').strip()}"
+            ) from e
 
-    frames_by_shot: Dict[str, List] = {}
-    if not targets:
-        return frames_by_shot
-
-    reader = imageio.get_reader(video_path)
-    try:
-        fps = reader.get_meta_data().get("fps") or 1.0
-        target_idx = 0
-        n_targets = len(targets)
-
-        for frame_idx, frame in enumerate(reader):
-            if target_idx >= n_targets:
-                break
-            frame_time = frame_idx / fps
-            while target_idx < n_targets and frame_time >= targets[target_idx][0]:
-                _, shot_id = targets[target_idx]
-                frames_by_shot.setdefault(shot_id, []).append(frame)
-                target_idx += 1
-    finally:
-        reader.close()
-
-    return frames_by_shot
+        jpegs = []
+        for name in sorted(os.listdir(tmp_dir)):
+            with open(os.path.join(tmp_dir, name), "rb") as f:
+                jpegs.append(f.read())
+        return jpegs
 
 
 def _load_transcript_segments(whisper_timeline_id: Optional[str]) -> List[Tuple[float, float, str]]:
@@ -143,14 +164,6 @@ def _transcript_text_for_shot(
         if text and t_start < window_end and t_end > window_start
     ]
     return " ".join(matches).strip()
-
-
-def _encode_frame_jpeg(frame, max_dim: int = MAX_FRAME_DIM) -> bytes:
-    frame = image_normalize(frame)
-    frame = image_resize(frame, max_dim=max_dim)
-    buf = io.BytesIO()
-    PIL.Image.fromarray(frame).convert("RGB").save(buf, format="JPEG")
-    return buf.getvalue()
 
 
 # Per-shot LLM results are cached to disk under /predictions (bind-mounted on
@@ -301,14 +314,18 @@ class Geolocation(Task):
 
         remaining_shots = [shot for shot in shot_segments if shot.id not in results_by_shot]
 
-        shots_with_timestamps = [
-            (shot.id, _sample_timestamps(shot.start, shot.end, fps, MAX_FRAMES_PER_SHOT))
-            for shot in remaining_shots
-        ]
-        frames_by_shot = _extract_shot_frames(video_path, shots_with_timestamps)
-
         for i, shot in enumerate(remaining_shots):
-            frames = frames_by_shot.get(shot.id, [])
+            timestamps = _sample_timestamps(shot.start, shot.end, fps, MAX_FRAMES_PER_SHOT)
+            extract_start = time.monotonic()
+            frames = _extract_shot_jpegs(video_path, shot.start, len(timestamps), fps)
+            logger.info(
+                "Geolocation extracted %d frames for shot %d/%d (%s) in %.1fs",
+                len(frames),
+                i + 1,
+                len(remaining_shots),
+                shot.id,
+                time.monotonic() - extract_start,
+            )
             if not frames:
                 logger.warning("No frames extracted for shot %s, skipping", shot.id)
                 candidates = []
@@ -318,9 +335,8 @@ class Geolocation(Task):
                     parameters.get("prompt"),
                     shot_transcript_text[shot.id],
                 )
-                encoded_frames = [_encode_frame_jpeg(frame) for frame in frames]
                 candidates = client.locate(
-                    encoded_frames, shot_prompt, request_label=f"shot={shot.id}"
+                    frames, shot_prompt, request_label=f"shot={shot.id}"
                 )
                 logger.info(
                     "Geolocation parsed candidates shot=%s: %s",
