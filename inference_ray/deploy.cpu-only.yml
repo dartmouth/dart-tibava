@@ -19,7 +19,13 @@ applications:
         ray_actor_options:
           runtime_env:
             uv:
-              - requests==2.26.0
+              packages:
+                - requests==2.26.0
+              # Ray passes --no-cache to uv by default, so every env re-downloaded and
+              # re-unpacked its own torch etc. A shared cache under /tmp/ray (an emptyDir
+              # in k8s, same filesystem as Ray's envs) lets uv hardlink one copy into
+              # every env and keeps it across inference restarts.
+              uv_pip_install_options: &uv_cache_opts ["--cache-dir", "/tmp/ray/uv-cache"]
   - name: audio_amp_analysis
     route_prefix: /audio_amp_analysis
     import_path: inference_ray.main:app_builder
@@ -35,14 +41,16 @@ applications:
         ray_actor_options:
           runtime_env:
             uv:
-              # - librosa==0.10.1
-              # - setuptools>=75.8.0
-              - librosa
-              - setuptools<82
-              - numpy
-              - scipy
-              - soundfile
-              - setuptools
+              packages:
+                # - librosa==0.10.1
+                # - setuptools>=75.8.0
+                - librosa
+                - setuptools<82
+                - numpy
+                - scipy
+                - soundfile
+                - setuptools
+              uv_pip_install_options: *uv_cache_opts
   - name: audio_freq_analysis
     route_prefix: /audio_freq_analysis
     import_path: inference_ray.main:app_builder
@@ -58,12 +66,14 @@ applications:
         ray_actor_options:
           runtime_env:
             uv:
-              - librosa
-              - setuptools<82
-              - numpy
-              - scipy
-              - soundfile
-              - setuptools
+              packages:
+                - librosa
+                - setuptools<82
+                - numpy
+                - scipy
+                - soundfile
+                - setuptools
+              uv_pip_install_options: *uv_cache_opts
   - name: audio_rms_analysis
     route_prefix: /audio_rms_analysis
     import_path: inference_ray.main:app_builder
@@ -79,12 +89,14 @@ applications:
         ray_actor_options:
           runtime_env:
             uv:
-              - librosa
-              - setuptools<82
-              - numpy
-              - scipy
-              - soundfile
-              - setuptools
+              packages:
+                - librosa
+                - setuptools<82
+                - numpy
+                - scipy
+                - soundfile
+                - setuptools
+              uv_pip_install_options: *uv_cache_opts
   - name: clip_image_embedding
     route_prefix: /clip_image_embedding
     import_path: inference_ray.main:app_builder
@@ -196,7 +208,9 @@ applications:
         ray_actor_options:
           runtime_env:
             uv:
-              - scikit-learn==1.4.0
+              packages:
+                - scikit-learn==1.4.0
+              uv_pip_install_options: *uv_cache_opts
   - name: color_brightness_analyser
     route_prefix: /color_brightness_analyser
     import_path: inference_ray.main:app_builder
@@ -212,8 +226,10 @@ applications:
         ray_actor_options:
           runtime_env:
             uv:
-              - scikit-learn==1.4.0
-              - opencv-python-headless==4.9.0.80
+              packages:
+                - scikit-learn==1.4.0
+                - opencv-python-headless==4.9.0.80
+              uv_pip_install_options: *uv_cache_opts
   - name: deepface_emotion
     route_prefix: /deepface_emotion
     import_path: inference_ray.main:app_builder
@@ -294,7 +310,9 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - scikit-learn==1.4.0
+              packages:
+                - scikit-learn==1.4.0
+              uv_pip_install_options: *uv_cache_opts
   - name: insightface_video_feature_extractor
     route_prefix: /insightface_video_feature_extractor
     import_path: inference_ray.main:app_builder
@@ -415,7 +433,9 @@ applications:
         ray_actor_options:
           runtime_env:
             uv:
-              - scikit-learn==1.4.0
+              packages:
+                - scikit-learn==1.4.0
+              uv_pip_install_options: *uv_cache_opts
   - name: shot_scalar_annotator
     route_prefix: /shot_scalar_annotator
     import_path: inference_ray.main:app_builder
@@ -556,7 +576,9 @@ applications:
         ray_actor_options:
           runtime_env:
             uv:
-              - scipy==1.12.0
+              packages:
+                - scipy==1.12.0
+              uv_pip_install_options: *uv_cache_opts
 
   - name: aggregate_scalar_per_time
     route_prefix: /aggregate_scalar_per_time
@@ -720,7 +742,9 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - scipy==1.12.0
+              packages:
+                - scipy==1.12.0
+              uv_pip_install_options: *uv_cache_opts
   - name: cluster_size_filter
     route_prefix: /cluster_size_filter
     import_path: inference_ray.main:app_builder
@@ -788,23 +812,17 @@ applications:
           num_cpus: 1
           runtime_env:
             uv:
-              - scipy==1.12.0
-              - scikit-learn==1.4.0
+              packages:
+                - scipy==1.12.0
+                - scikit-learn==1.4.0
+              uv_pip_install_options: *uv_cache_opts
   - name: ocr_video_detector_onnx
     route_prefix: /ocr_video_detector_onnx
     import_path: inference_ray.main:app_builder
-    runtime_env:
-      uv:
-        - "--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/"
-        - scikit-learn
-        - opencv-python-headless
-        - onnxruntime-gpu==1.17.0
-        - onnx
-        - torch
-        - torchvision
-        - pytorch_lightning
-        - timm
-        - nltk
+    # NOTE: no runtime_env. An app-level runtime_env is installed every time
+    # inference starts (Serve builds the app inside it), and this one pulled
+    # torch and CUDA wheels for ~20 min, stalling the node. ocr.py only imports
+    # cv2, torch, onnx and onnxruntime, which the image venv already provides.
     args:
       model: ocr_video_detector_onnx
       data_path: /data
@@ -830,8 +848,10 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - scipy
-              - opencv-python-headless
+              packages:
+                - scipy
+                - opencv-python-headless
+              uv_pip_install_options: *uv_cache_opts
   - name: shot_angle
     route_prefix: /shot_angle
     import_path: inference_ray.main:app_builder
@@ -847,9 +867,11 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - torch>=2.6.0
-              - torchvision
-              - transformers
+              packages:
+                - torch>=2.6.0
+                - torchvision
+                - transformers
+              uv_pip_install_options: *uv_cache_opts
   - name: shot_level
     route_prefix: /shot_level
     import_path: inference_ray.main:app_builder
@@ -865,9 +887,11 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - torch>=2.6.0
-              - torchvision
-              - transformers
+              packages:
+                - torch>=2.6.0
+                - torchvision
+                - transformers
+              uv_pip_install_options: *uv_cache_opts
   - name: shot_scale_and_movement
     route_prefix: /shot_scale_and_movement
     import_path: inference_ray.main:app_builder
@@ -883,9 +907,11 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - torch>=2.6.0
-              - torchvision
-              - transformers
+              packages:
+                - torch>=2.6.0
+                - torchvision
+                - transformers
+              uv_pip_install_options: *uv_cache_opts
   - name: whisper_x
     route_prefix: /whisper_x
     import_path: inference_ray.main:app_builder
@@ -901,12 +927,14 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - git+https://github.com/m-bain/whisperx.git
-              - librosa==0.10.1
-              - setuptools<82
-              - torch>=2.6.0
-              - scikit-learn>=1.6.1
-              - transformers>=4.48.3
+              packages:
+                - git+https://github.com/m-bain/whisperx.git
+                - librosa==0.10.1
+                - setuptools<82
+                - torch>=2.6.0
+                - scikit-learn>=1.6.1
+                - transformers>=4.48.3
+              uv_pip_install_options: *uv_cache_opts
   - name: audio_emotion
     route_prefix: /audio_emotion
     import_path: inference_ray.main:app_builder
@@ -922,11 +950,13 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - librosa==0.10.1
-              - setuptools<82
-              - torch>=2.6.0
-              - transformers>=4.48.3
-              - speechbrain==1.0.2
+              packages:
+                - librosa==0.10.1
+                - setuptools<82
+                - torch>=2.6.0
+                - transformers>=4.48.3
+                - speechbrain==1.0.2
+              uv_pip_install_options: *uv_cache_opts
   - name: audio_gender
     route_prefix: /audio_gender
     import_path: inference_ray.main:app_builder
@@ -942,11 +972,13 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - librosa==0.10.1
-              - setuptools<82
-              - torch>=2.6.0
-              - transformers>=4.48.3
-              - speechbrain==1.0.2
+              packages:
+                - librosa==0.10.1
+                - setuptools<82
+                - torch>=2.6.0
+                - transformers>=4.48.3
+                - speechbrain==1.0.2
+              uv_pip_install_options: *uv_cache_opts
   - name: active_speaker_detection
     route_prefix: /active_speaker_detection
     import_path: inference_ray.main:app_builder
@@ -962,13 +994,15 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - librosa==0.10.1
-              - setuptools<82
-              - torch>=2.6.0
-              - python_speech_features
-              - scipy
-              - opencv-python-headless
-              - pandas
+              packages:
+                - librosa==0.10.1
+                - setuptools<82
+                - torch>=2.6.0
+                - python_speech_features
+                - scipy
+                - opencv-python-headless
+                - pandas
+              uv_pip_install_options: *uv_cache_opts
 
   - name: audio_classification
     route_prefix: /audio_classification
@@ -985,10 +1019,12 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - librosa==0.10.1
-              - setuptools<82
-              - torch>=2.6.0
-              - torchaudio # TODO specify version
+              packages:
+                - librosa==0.10.1
+                - setuptools<82
+                - torch>=2.6.0
+                - torchaudio # TODO specify version
+              uv_pip_install_options: *uv_cache_opts
   - name: text_ner
     route_prefix: /text_ner
     import_path: inference_ray.main:app_builder
@@ -1004,8 +1040,10 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - requests==2.28.2
-              - stanza==1.9.2
+              packages:
+                - requests==2.28.2
+                - stanza==1.9.2
+              uv_pip_install_options: *uv_cache_opts
   - name: text_pos
     route_prefix: /text_pos
     import_path: inference_ray.main:app_builder
@@ -1021,7 +1059,9 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - stanza==1.9.2
+              packages:
+                - stanza==1.9.2
+              uv_pip_install_options: *uv_cache_opts
   - name: text_sentiment
     route_prefix: /text_sentiment
     import_path: inference_ray.main:app_builder
@@ -1037,19 +1077,14 @@ applications:
           num_cpus: 2
           runtime_env:
             uv:
-              - torch>=2.6.0
-              - transformers>=4.48.3
-              - germansentiment==1.1.0
+              packages:
+                - torch>=2.6.0
+                - transformers>=4.48.3
+                - germansentiment==1.1.0
+              uv_pip_install_options: *uv_cache_opts
   - name: nano_ocr_video
     route_prefix: /nano_ocr_video
     import_path: inference_ray.main:app_builder
-    runtime_env:
-      uv:
-        - transformers>=4.54.0
-        - accelerate>=1.9.0
-        - torchvision>=0.22.1
-        - hqq
-        - torchao
     args:
       model: nano_ocr_video
       data_path: /data
@@ -1057,6 +1092,19 @@ applications:
       - name: Deployment
         autoscaling_config:
           min_replicas: 0
+        # NOTE: per-deployment, not app-level, so these install on first use
+        # instead of every time inference starts (they timed out at 600 s and
+        # stalled the node). ocr_nano.py imports them lazily.
+        ray_actor_options:
+          runtime_env:
+            uv:
+              packages:
+                - transformers>=4.54.0
+                - accelerate>=1.9.0
+                - torchvision>=0.22.1
+                - hqq
+                - torchao
+              uv_pip_install_options: *uv_cache_opts
   - name: movie_pattern_intensify
     route_prefix: /movie_pattern_intensify
     import_path: inference_ray.main:app_builder
